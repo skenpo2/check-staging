@@ -5,7 +5,7 @@ const appConfig = () => ({
   PORT: getEnv('PORT', '3001'),
   BASE_PATH: getEnv('BASE_PATH', '/api'),
   MONGO_URI: getEnv('MONGO_URI', ''),
-  ACCESS_TOKEN: getEnv('ACCESS_TOKEN'),
+  // ACCESS_TOKEN: getEnv('ACCESS_TOKEN'),
 });
 
 export const config = appConfig();
