@@ -1,8 +1,11 @@
 import { NextFunction } from 'express';
 import crypto from 'crypto';
-import { BadRequestException } from '../../utils/appError';
+import { BadRequestException, NotFoundException } from '../../utils/appError';
 import redis from '../../redis';
 import { sendEmail } from '../../utils/sendMail';
+import RefreshTokenModel from './models/refreshToken.model';
+import logger from '../../utils/logger';
+import UserModel from '../user/model/user.model';
 
 export const checkOtpRestrictions = async (
   email: string,
@@ -79,4 +82,55 @@ export const verifyOtp = async (email: string, otp: string) => {
   }
 
   await redis.del(`otp:${email}`, failedAttemptsKey);
+};
+
+export const verifyRefreshTokenService = async (refreshToken: string) => {
+  try {
+    const storedToken = await RefreshTokenModel.findOne({
+      token: refreshToken,
+    });
+
+    if (!storedToken) {
+      logger.warn('Invalid refresh token provided');
+      throw new BadRequestException('Invalid refresh token');
+    }
+
+    if (!storedToken || storedToken.expiresAt < new Date()) {
+      logger.warn('Invalid or expired refresh token');
+      throw new BadRequestException('Invalid  or expired refresh token');
+    }
+
+    const user = await UserModel.findById(storedToken.user);
+
+    if (!user) {
+      logger.warn('User does not exist');
+
+      throw new NotFoundException('User does not exist');
+    }
+    //delete the old refresh token
+    await RefreshTokenModel.deleteOne({ _id: storedToken._id });
+
+    return user;
+  } catch (error) {
+    logger.error('Refresh token error occurred', error);
+    throw error;
+  }
+};
+
+export const logOutService = async (refreshToken: string) => {
+  try {
+    const storedToken = await RefreshTokenModel.findOneAndDelete({
+      token: refreshToken,
+    });
+    if (!storedToken) {
+      logger.warn('Invalid refresh token provided');
+      throw new NotFoundException('Invalid refresh token');
+    }
+
+    logger.info('Refresh token deleted for logout');
+    return true;
+  } catch (error) {
+    logger.error('Error while logging out', error);
+    throw error;
+  }
 };

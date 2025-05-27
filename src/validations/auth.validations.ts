@@ -93,5 +93,14 @@ export const LoginUserSchema = z.object({
   }),
 });
 
+export const UserEmailSchema = z.object({
+  email: z
+    .string({
+      required_error: 'Email is required',
+      invalid_type_error: 'Email must be a string',
+    })
+    .email('Please provide a valid email address'),
+});
+
 export type IRegisterUser = z.infer<typeof RegisterUserSchema>;
 export type ILoginUser = z.infer<typeof LoginUserSchema>;
