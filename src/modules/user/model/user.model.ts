@@ -3,6 +3,7 @@ import argon2 from 'argon2';
 
 // Import the Zod schema types
 import { IKYCData, IUser as IUserSchema } from '../schemas/user.schema';
+import { RoleEnum } from '../../../enums/user-role.enum';
 
 // Interface for KYC data in the MongoDB document
 export interface IKYC extends IKYCData {}
@@ -12,7 +13,7 @@ export interface IUser extends Omit<IUserSchema, 'kyc'>, Document {
   kyc?: IKYC;
   createdAt: Date;
   updatedAt: Date;
-  
+
   // Instance methods
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
@@ -27,54 +28,52 @@ const KYCSchema = new Schema<IKYC>({
 // User Schema for MongoDB
 const UserSchema = new Schema<IUser>(
   {
-    name: { 
-      type: String, 
+    name: {
+      type: String,
       required: [true, 'Name is required'],
-      trim: true
+      trim: true,
     },
-    email: { 
-      type: String, 
-      required: [true, 'Email is required'], 
+    email: {
+      type: String,
+      required: [true, 'Email is required'],
       unique: true,
       lowercase: true,
       trim: true,
-      index: true
+      index: true,
     },
-    password: { 
-      type: String, 
-      required: [true, 'Password is required']
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
     },
-    phone: { 
-      type: String, 
+    phone: {
+      type: String,
       required: [true, 'Phone number is required'],
-      trim: true
+      trim: true,
     },
-    role: { 
-      type: String, 
-      enum: ['customer', 'expert'], 
+    role: {
+      type: String,
+      enum: Object.values(RoleEnum),
       required: [true, 'Role is required'],
-      default: 'customer'
     },
-    isVerified: { 
-      type: Boolean, 
-      default: false 
+    isVerified: {
+      type: Boolean,
+      default: false,
     },
-    kyc: { 
-      type: KYCSchema, 
-      required: false 
-    }
+    kyc: {
+      type: KYCSchema,
+      required: false,
+    },
   },
   {
-    timestamps: true, 
-    versionKey: false 
+    timestamps: true,
   }
 );
 
-// Create indexes for faster queries
-UserSchema.index({ email: 1 }, { unique: true });
-UserSchema.index({ phone: 1 });
+// // Create indexes for faster queries
+// UserSchema.index({ email: 1 }, { unique: true });
+// UserSchema.index({ phone: 1 });
 
-// 🔐 Hash password before saving
+// Hash password before saving
 UserSchema.pre<IUser>('save', async function (next) {
   if (!this.isModified('password')) return next();
 
@@ -86,11 +85,13 @@ UserSchema.pre<IUser>('save', async function (next) {
   }
 });
 
-// 🔍 Compare passwords
-UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+// Compare passwords
+UserSchema.methods.comparePassword = async function (
+  candidatePassword: string
+): Promise<boolean> {
   return await argon2.verify(this.password, candidatePassword);
 };
 
 // Create and export the User model
-const User = mongoose.model<IUser>('User', UserSchema);
-export default User;
+const UserModel = mongoose.model<IUser>('User', UserSchema);
+export default UserModel;
