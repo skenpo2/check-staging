@@ -11,10 +11,7 @@ const PORT = config.PORT;
 // Database connection
 connectDb();
 
-app.get('/test', async (req: Request, res: Response, next: NextFunction) => {
-  res.send('hello at checkslate');
-});
-// start up the server
+// server
 app.listen(PORT, () => {
   logger.info(`Server is listening on ${PORT} in ${config.NODE_ENV}`);
 });

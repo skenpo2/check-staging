@@ -12,12 +12,12 @@ const generateJwtToken = async (user: IUser) => {
       },
     },
     config.ACCESS_TOKEN,
-    { expiresIn: '1h' }
+    { expiresIn: '5m' }
   );
 
   const refreshToken = crypto.randomBytes(40).toString('hex');
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30); // refresh token expires in 30 days
+  expiresAt.setDate(expiresAt.getDate() + 7); // refresh token expires in 7 days
 
   await RefreshTokenModel.create({
     token: refreshToken,

@@ -5,6 +5,7 @@ import {
   LoginUserSchema,
   RegisterUserSchema,
   UserEmailSchema,
+  verifyForgotPasswordSchema,
   VerifyRegisterUserSchema,
 } from '../../validations/auth.validations';
 import {
@@ -21,6 +22,7 @@ import AsyncHandler from '../../middlewares/asyncHandler';
 import { RoleEnum } from '../../enums/user-role.enum';
 import generateJwtToken from '../../utils/generateJwt';
 import logger from '../../utils/logger';
+import redis from '../../redis';
 
 export const registerUserController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -29,7 +31,6 @@ export const registerUserController = asyncHandler(
     const { email, name } = body;
 
     const existingUser = await UserModel.findOne({ email });
-    console.log(existingUser);
 
     if (existingUser) {
       throw new BadRequestException('Email already in use');
@@ -46,7 +47,7 @@ export const registerUserController = asyncHandler(
   }
 );
 
-export const verifyUserRegistration = AsyncHandler(
+export const verifyUserRegistrationController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const body = VerifyRegisterUserSchema.parse({ ...req.body });
 
@@ -71,24 +72,49 @@ export const verifyUserRegistration = AsyncHandler(
   }
 );
 
-export const loginUser = AsyncHandler(
+export const loginUserController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const body = LoginUserSchema.parse({ ...req.body });
 
     const { email, password } = body;
+
     const user = await UserModel.findOne({ email: email });
 
     if (!user) {
       throw new NotFoundException('User not found or Incorrect details');
     }
 
-    const isPassword = user.comparePassword(password);
-
-    if (!isPassword) {
-      throw new BadRequestException('Invalid details');
+    if (await redis.get(`login_lock:${email}`)) {
+      throw new BadRequestException(
+        'Account locked due to multiple failed login attempts, Try again after 30 minutes'
+      );
     }
 
+    const isPassword = await user.comparePassword(password);
+
+    const failedAttemptsKey = `login_attempts:${email}`;
+    const failedAttempts = parseInt(
+      (await redis.get(failedAttemptsKey)) || '0'
+    );
+
+    if (!isPassword) {
+      if (failedAttempts >= 4) {
+        await redis.set(`login_lock:${email}`, 'locked', 'EX', 120); //locked for 30 minutes
+        throw new BadRequestException(
+          'Too many failed login attempts, your account is locked for 30minutes'
+        );
+      }
+      await redis.set(failedAttemptsKey, failedAttempts + 1, 'EX', 300);
+      throw new BadRequestException(
+        `Invalid details. ${4 - failedAttempts} attempts left. `
+      );
+    }
+
+    await redis.del(failedAttemptsKey);
+
     const { accessToken, refreshToken } = await generateJwtToken(user);
+
+    const userOmitPassword = user.omitPassword();
 
     return res
       .status(HTTPSTATUS.OK)
@@ -101,13 +127,13 @@ export const loginUser = AsyncHandler(
       .json({
         success: true,
         message: 'login successful',
-        user,
+        user: userOmitPassword,
         token: accessToken,
       });
   }
 );
 
-export const forgetPassword = AsyncHandler(
+export const forgotPasswordController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const body = UserEmailSchema.parse({ ...req.body });
 
@@ -121,7 +147,7 @@ export const forgetPassword = AsyncHandler(
 
     await checkOtpRestrictions(email, next);
     await trackOtpRequests(email, next);
-    await sendOtp(user.name, email, 'user-activation-mail');
+    await sendOtp(user.name, email, 'forgot-password-mail');
     logger.warn('Password reset otp sent');
 
     return res.status(HTTPSTATUS.OK).json({
@@ -131,9 +157,9 @@ export const forgetPassword = AsyncHandler(
   }
 );
 
-export const verifyForgetPassword = AsyncHandler(
+export const verifyForgotPasswordController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    const body = VerifyRegisterUserSchema.parse({ ...req.body });
+    const body = verifyForgotPasswordSchema.parse({ ...req.body });
 
     const { email, password, otp } = body;
 

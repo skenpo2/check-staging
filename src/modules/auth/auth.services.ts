@@ -11,12 +11,12 @@ export const checkOtpRestrictions = async (
   email: string,
   next: NextFunction
 ) => {
-  if (await redis.get(`otp_locked:${email}`)) {
+  if (await redis.get(`otp_lock:${email}`)) {
     throw new BadRequestException(
       'Account locked due to multiple failed attempts, Try again after 30 minutes'
     );
   }
-  if (await redis.get(`otp_spam_locked:${email}`)) {
+  if (await redis.get(`otp_spam_lock:${email}`)) {
     throw new BadRequestException(
       'Too many requests!, Please wait 1hour before requesting again'
     );
@@ -34,7 +34,7 @@ export const trackOtpRequests = async (email: string, next: NextFunction) => {
 
   let otpRequest = parseInt((await redis.get(otpRequestKey)) || '0');
 
-  if (otpRequest >= 3) {
+  if (otpRequest >= 2) {
     await redis.set(`otp_spam_lock:${email}`, 'locked', 'EX', 3600); // lock for 1h
     new BadRequestException(
       'Too many requests!, Please wait 1hour before requesting again'
@@ -42,6 +42,21 @@ export const trackOtpRequests = async (email: string, next: NextFunction) => {
   }
 
   await redis.set(otpRequestKey, otpRequest + 1, 'EX', 3600); //track request
+};
+
+export const trackLogin = async (email: string, next: NextFunction) => {
+  const loginKey = `login_count:${email}`;
+
+  let login = parseInt((await redis.get(loginKey)) || '0');
+
+  if (login >= 4) {
+    await redis.set(`login_lock:${email}`, 'locked', 'EX', 1800); // lock for 30 minutes
+    new BadRequestException(
+      'Too many failed attempts!, Please wait 1hour before requesting again'
+    );
+  }
+
+  await redis.set(loginKey, login + 1, 'EX', 1800); //track request
 };
 
 export const sendOtp = async (

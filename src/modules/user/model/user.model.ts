@@ -16,6 +16,7 @@ export interface IUser extends Omit<IUserSchema, 'kyc'>, Document {
 
   // Instance methods
   comparePassword(candidatePassword: string): Promise<boolean>;
+  omitPassword(): Omit<IUser, 'password'>;
 }
 
 // KYC Schema for MongoDB
@@ -92,6 +93,11 @@ UserSchema.methods.comparePassword = async function (
   return await argon2.verify(this.password, candidatePassword);
 };
 
+UserSchema.methods.omitPassword = function (): Omit<IUser, 'password'> {
+  const userObject = this.toObject();
+  delete userObject.password;
+  return userObject;
+};
 // Create and export the User model
 const UserModel = mongoose.model<IUser>('User', UserSchema);
 export default UserModel;
