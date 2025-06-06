@@ -5,7 +5,6 @@ import app from './app';
 import connectDb from './configs/dB.config';
 import { config } from './configs/app.config';
 import logger from './utils/logger';
-import { NextFunction, Request, Response } from 'express';
 
 const PORT = config.PORT;
 // Database connection

@@ -12,6 +12,9 @@ const appConfig = () => ({
   SMTP_SERVICE: getEnv('SMTP_SERVICE', ''),
   SMTP_USER: getEnv('SMTP_USER', ''),
   SMTP_PASSWORD: getEnv('SMTP_PASSWORD', ''),
+  GOOGLE_CALLBACK_URL: getEnv('GOOGLE_CALLBACK_URL', ''),
+  GOOGLE_CLIENT_ID: getEnv('GOOGLE_CLIENT_ID', ''),
+  GOOGLE_CLIENT_SECRET: getEnv('GOOGLE_CLIENT_SECRET', ''),
 });
 
 export const config = appConfig();

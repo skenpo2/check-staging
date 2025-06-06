@@ -23,6 +23,10 @@ import { RoleEnum } from '../../enums/user-role.enum';
 import generateJwtToken from '../../utils/generateJwt';
 import logger from '../../utils/logger';
 import redis from '../../redis';
+import {
+  ProviderEnum,
+  ProviderEnumType,
+} from '../../enums/account-provider.enum';
 
 export const registerUserController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -55,12 +59,20 @@ export const verifyUserRegistrationController = AsyncHandler(
 
     await verifyOtp(email, otp);
 
+    const account = {
+      provider: ProviderEnum.EMAIL,
+      providerId: email,
+      googleAccessToken: '',
+      googleRefreshToken: '',
+    };
+
     const newUser = new UserModel({
       name,
       email,
       password,
       phone,
       role: RoleEnum.CUSTOMER,
+      account,
     });
 
     await newUser.save();

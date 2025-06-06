@@ -1,9 +1,9 @@
 import passport from 'passport';
-// import { configureGoogleStrategy } from './google-strategy.config';
 import { configureJwtStrategy } from './jwt-strategy.config';
+import { configureGoogleStrategy } from './google-strategy.config';
 
 // Setup all strategies
 configureJwtStrategy();
-// configureGoogleStrategy();
+configureGoogleStrategy();
 
 export default passport;

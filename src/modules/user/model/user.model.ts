@@ -4,13 +4,26 @@ import argon2 from 'argon2';
 // Import the Zod schema types
 import { IKYCData, IUser as IUserSchema } from '../schemas/user.schema';
 import { RoleEnum } from '../../../enums/user-role.enum';
+import {
+  ProviderEnum,
+  ProviderEnumType,
+} from '../../../enums/account-provider.enum';
 
 // Interface for KYC data in the MongoDB document
 export interface IKYC extends IKYCData {}
 
+export interface IAccount extends Document {
+  provider: ProviderEnumType;
+  providerId: string; // Store the email, googleId, facebookId as the providerId
+  googleAccessToken: string;
+  googleRefreshToken: string;
+}
+
 // Interface for User MongoDB document - extends the Zod user schema type
 export interface IUser extends Omit<IUserSchema, 'kyc'>, Document {
+  profilePicture?: String;
   kyc?: IKYC;
+  account: IAccount;
   createdAt: Date;
   updatedAt: Date;
 
@@ -24,6 +37,21 @@ const KYCSchema = new Schema<IKYC>({
   idType: { type: String, required: true },
   idNumber: { type: String, required: true },
   idImageUrl: { type: String, required: true },
+});
+
+const AccountSchema = new Schema<IAccount>({
+  provider: {
+    type: String,
+    enum: Object.values(ProviderEnum),
+    required: true,
+  },
+  providerId: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  googleAccessToken: String,
+  googleRefreshToken: String,
 });
 
 // User Schema for MongoDB
@@ -44,11 +72,9 @@ const UserSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
     },
     phone: {
       type: String,
-      required: [true, 'Phone number is required'],
       trim: true,
     },
     role: {
@@ -56,9 +82,14 @@ const UserSchema = new Schema<IUser>(
       enum: Object.values(RoleEnum),
       required: [true, 'Role is required'],
     },
+    profilePicture: String,
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    account: {
+      type: AccountSchema,
+      required: true,
     },
     kyc: {
       type: KYCSchema,

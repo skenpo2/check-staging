@@ -6,6 +6,60 @@ import { sendEmail } from '../../utils/sendMail';
 import RefreshTokenModel from './models/refreshToken.model';
 import logger from '../../utils/logger';
 import UserModel from '../user/model/user.model';
+import { ProviderEnumType } from '../../enums/account-provider.enum';
+import { RoleEnum } from '../../enums/user-role.enum';
+
+export const googleLoginOrCreateAccountService = async (body: {
+  provider: ProviderEnumType;
+  displayName: string;
+  providerId: string;
+  picture?: string;
+  email?: string;
+  accessToken: string;
+  refreshToken: string;
+}) => {
+  const {
+    provider,
+    displayName,
+    providerId,
+    picture,
+    email,
+    accessToken,
+    refreshToken,
+  } = body;
+
+  try {
+    let user = await UserModel.findOne({ email });
+
+    if (!user) {
+      const account = {
+        provider,
+        providerId,
+        googleAccessToken: accessToken,
+        googleRefreshToken: refreshToken,
+      };
+
+      user = new UserModel({
+        email,
+        name: displayName,
+        profilePicture: picture || null,
+        role: RoleEnum.CUSTOMER,
+        account,
+      });
+
+      await user.save();
+    } else {
+      user.account.googleAccessToken = accessToken;
+      user.account.googleRefreshToken = refreshToken;
+      await user.save();
+    }
+
+    return user;
+  } catch (error) {
+    logger.error('Google login error:', error);
+    throw new Error('Failed to login or create user via Google');
+  }
+};
 
 export const checkOtpRestrictions = async (
   email: string,
@@ -36,27 +90,12 @@ export const trackOtpRequests = async (email: string, next: NextFunction) => {
 
   if (otpRequest >= 2) {
     await redis.set(`otp_spam_lock:${email}`, 'locked', 'EX', 3600); // lock for 1h
-    new BadRequestException(
+    throw new BadRequestException(
       'Too many requests!, Please wait 1hour before requesting again'
     );
   }
 
   await redis.set(otpRequestKey, otpRequest + 1, 'EX', 3600); //track request
-};
-
-export const trackLogin = async (email: string, next: NextFunction) => {
-  const loginKey = `login_count:${email}`;
-
-  let login = parseInt((await redis.get(loginKey)) || '0');
-
-  if (login >= 4) {
-    await redis.set(`login_lock:${email}`, 'locked', 'EX', 1800); // lock for 30 minutes
-    new BadRequestException(
-      'Too many failed attempts!, Please wait 1hour before requesting again'
-    );
-  }
-
-  await redis.set(loginKey, login + 1, 'EX', 1800); //track request
 };
 
 export const sendOtp = async (
