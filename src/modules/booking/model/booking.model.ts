@@ -33,19 +33,16 @@ const BookingSchema = new Schema<IBooking>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Customer is required'],
-      index: true,
     },
     service: {
       type: Schema.Types.ObjectId,
       ref: 'Service',
       required: [true, 'Service is required'],
-      index: true,
     },
     expert: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Expert is required'],
-      index: true,
     },
     status: {
       type: String,
@@ -69,43 +66,9 @@ const BookingSchema = new Schema<IBooking>(
   },
   {
     timestamps: true,
-    versionKey: false,
   }
 );
 
-// Create indexes for faster queries
-BookingSchema.index({ customer: 1 });
-BookingSchema.index({ service: 1 });
-BookingSchema.index({ expert: 1 });
-BookingSchema.index({ scheduledAt: 1 });
-BookingSchema.index({ status: 1 });
-
-// Define virtuals for related models
-BookingSchema.virtual('payment', {
-  ref: 'Payment',
-  localField: '_id',
-  foreignField: 'booking',
-  justOne: true,
-});
-
-BookingSchema.virtual('review', {
-  ref: 'Review',
-  localField: '_id',
-  foreignField: 'booking',
-  justOne: true,
-});
-
-// Ensure virtuals are included when converting to JSON
-BookingSchema.set('toJSON', {
-  virtuals: true,
-  transform: (_, ret) => {
-    delete ret.id;
-    return ret;
-  },
-});
-
-// BookingSchema.pre('save', function (next) {
-//   if (this.isModified('status')) {
 //     const validTransitions: Record<string, string[]> = {
 //       PENDING: ['CONFIRMED', 'CANCELED'],
 //       CONFIRMED: ['COMPLETED', 'CANCELED'],

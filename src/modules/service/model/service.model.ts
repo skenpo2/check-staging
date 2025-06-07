@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema, Types } from "mongoose";
+import mongoose, { Document, Schema, Types } from 'mongoose';
 
 // TODO: If a Zod schema exists for Service, import it like:
 // import { IService as IServiceSchema } from '../schemas/service.schema';
@@ -26,54 +26,52 @@ export interface IServiceDocument extends IServiceBase, Document {
 
 const ServiceSchema = new Schema<IServiceDocument>(
   {
-    expert: { 
-      type: Schema.Types.ObjectId, 
-      ref: "User", 
+    expert: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: [true, 'Expert is required'],
-      index: true
     },
-    title: { 
-      type: String, 
+    title: {
+      type: String,
       required: [true, 'Title is required'],
       trim: true,
       minlength: [3, 'Title must be at least 3 characters long'],
-      maxlength: [100, 'Title must not exceed 100 characters']
+      maxlength: [100, 'Title must not exceed 100 characters'],
     },
-    description: { 
-      type: String, 
+    description: {
+      type: String,
       required: [true, 'Description is required'],
       trim: true,
       minlength: [10, 'Description must be at least 10 characters long'],
-      maxlength: [1000, 'Description must not exceed 1000 characters'] 
+      maxlength: [1000, 'Description must not exceed 1000 characters'],
     },
-    price: { 
-      type: Number, 
+    price: {
+      type: Number,
       required: [true, 'Price is required'],
       min: [0, 'Price cannot be negative'],
-      max: [1000000, 'Price is too high'] 
+      max: [1000000, 'Price is too high'],
     },
     category: {
       type: String,
       trim: true,
-      index: true
     },
-    location: { 
-      type: String, 
+    location: {
+      type: String,
       required: [true, 'Location is required'],
-      trim: true 
+      trim: true,
     },
-    availability: { 
-      type: [Date], 
-      required: [true, 'Availability dates are required']
+    availability: {
+      type: [Date],
+      required: [true, 'Availability dates are required'],
     },
     active: {
       type: Boolean,
-      default: true
+      default: true,
     },
   },
   {
-    timestamps: true, 
-    versionKey: false 
+    timestamps: true,
+    versionKey: false,
   }
 );
 
@@ -89,7 +87,7 @@ ServiceSchema.index({ active: 1 }); // For filtering active/inactive services
 ServiceSchema.virtual('bookings', {
   ref: 'Booking',
   localField: '_id',
-  foreignField: 'service'
+  foreignField: 'service',
 });
 
 // Virtual for average rating from reviews
@@ -102,11 +100,15 @@ ServiceSchema.virtual('averageRating', {
 // Ensure virtuals are included when converting to JSON
 ServiceSchema.set('toJSON', {
   virtuals: true,
-  transform: (doc: mongoose.Document, ret: Record<string, any>, options: any) => {
+  transform: (
+    doc: mongoose.Document,
+    ret: Record<string, any>,
+    options: any
+  ) => {
     delete ret.id;
     return ret;
-  }
+  },
 });
 
-const Service = mongoose.model<IServiceDocument>("Service", ServiceSchema);
+const Service = mongoose.model<IServiceDocument>('Service', ServiceSchema);
 export default Service;

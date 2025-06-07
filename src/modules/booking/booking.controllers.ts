@@ -9,9 +9,16 @@ import {
 } from '../../enums/booking-status.enum';
 import Booking from './model/booking.model';
 import mongoose from 'mongoose';
-import { BadRequestException, NotFoundException } from '../../utils/appError';
+import {
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from '../../utils/appError';
 import { HTTPSTATUS } from '../../configs/http.config';
-import { createBookingService } from './booking.services';
+import {
+  createBookingService,
+  validateBookingStatusTransition,
+} from './booking.services';
 import { BookingSchema } from '../../validations/booking.validations';
 import { IUser } from '../user/model/user.model';
 import { config } from '../../configs/app.config';
@@ -119,6 +126,7 @@ export const updateBookingByIdController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const { bookingId } = req.params;
     const { status } = req.body;
+    const currentUserId = req.user?._id;
 
     const booking = await Booking.findById(bookingId)
       .populate({
@@ -134,8 +142,19 @@ export const updateBookingByIdController = AsyncHandler(
       throw new NotFoundException('Booking does not exist');
     }
 
+    if (booking.expert.toString() !== currentUserId) {
+      throw new UnauthorizedException(
+        'You are not authorized to update this booking'
+      );
+    }
+    const currentStatus = booking.status;
+
+    // Validate status transition
+    validateBookingStatusTransition(currentStatus, status);
+
     booking.status = status;
     await booking.save();
+
     //Add the booking to the expert calender
     if (status === 'CONFIRMED') {
       const expert = booking.expert as IUser;
@@ -170,7 +189,11 @@ export const updateBookingByIdController = AsyncHandler(
         },
         attendees: [{ email: expert.email }, { email: customer.email }],
         reminders: {
-          useDefault: true,
+          useDefault: false,
+          overrides: [
+            { method: 'email', minutes: 30 },
+            { method: 'popup', minutes: 10 },
+          ],
         },
       };
 
@@ -190,5 +213,35 @@ export const updateBookingByIdController = AsyncHandler(
       message: 'Booking updated successfully',
       booking,
     });
+  }
+);
+
+export const deleteBookingByIdController = AsyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { bookingId } = req.params;
+    const currentUserId = req.user?._id;
+
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    if (booking.customer.toString() !== currentUserId) {
+      throw new UnauthorizedException(
+        'You are not authorized to delete this booking'
+      );
+    }
+    if (booking.status !== 'PENDING') {
+      throw new BadRequestException(
+        'Only bookings with status PENDING can be deleted'
+      );
+    }
+
+    await booking.deleteOne();
+
+    return res
+      .status(HTTPSTATUS.OK)
+      .json({ success: true, message: 'Booking deleted successfully' });
   }
 );

@@ -1,5 +1,8 @@
 import mongoose from 'mongoose';
-import { BookingStatusEnum } from '../../enums/booking-status.enum';
+import {
+  BookingStatusEnum,
+  BookingStatusEnumType,
+} from '../../enums/booking-status.enum';
 import Booking, { IBookingDocument } from './model/booking.model';
 import { BadRequestException, NotFoundException } from '../../utils/appError';
 import { IBooking } from '../../validations/booking.validations';
@@ -45,6 +48,29 @@ export const createBookingService = async (body: IBooking) => {
     throw error;
   }
 };
+
+export function validateBookingStatusTransition(
+  currentStatus: BookingStatusEnumType,
+  nextStatus: BookingStatusEnumType
+) {
+  const validTransitions: Record<
+    BookingStatusEnumType,
+    BookingStatusEnumType[]
+  > = {
+    PENDING: ['CONFIRMED', 'CANCELLED'],
+    CONFIRMED: ['COMPLETED'],
+    COMPLETED: [],
+    CANCELLED: [],
+  };
+
+  const allowed = validTransitions[currentStatus];
+
+  if (!allowed.includes(nextStatus)) {
+    throw new BadRequestException(
+      `Invalid booking status transition from '${currentStatus}' to '${nextStatus}'.`
+    );
+  }
+}
 
 export const bookingCalenderService = async (booking: IBookingDocument) => {
   const expert = booking.expert;
