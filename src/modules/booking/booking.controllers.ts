@@ -1,6 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
-
+import { IUser } from '../user/model/user.model';
 import { google } from 'googleapis';
+
+// Extend Express Request interface to include user property
+declare global {
+  namespace Express {
+    interface Request {
+      user?: IUser;
+    }
+  }
+}
 
 import AsyncHandler from '../../middlewares/asyncHandler';
 import {
@@ -20,9 +29,7 @@ import {
   validateBookingStatusTransition,
 } from './booking.services';
 import { BookingSchema } from '../../validations/booking.validations';
-import { IUser } from '../user/model/user.model';
 import { config } from '../../configs/app.config';
-
 //Google calender setup
 const calendar = google.calendar('v3');
 

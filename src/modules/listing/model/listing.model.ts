@@ -1,9 +1,7 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
+import { ICreateListing } from '../../../validations/listing.validations';
 
-// TODO: If a Zod schema exists for Service, import it like:
-// import { IService as IServiceSchema } from '../schemas/service.schema';
-
-interface IServiceBase {
+interface IListingBase {
   expert: Types.ObjectId;
   title: string;
   description: string;
@@ -14,17 +12,17 @@ interface IServiceBase {
   active: boolean;
 }
 
-export interface IService extends IServiceBase {
+export interface IListing extends IListingBase {
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface IServiceDocument extends IServiceBase, Document {
+export interface IListingDocument extends IListingBase, Document {
   createdAt: Date;
   updatedAt: Date;
 }
 
-const ServiceSchema = new Schema<IServiceDocument>(
+const ListingSchema = new Schema<IListingDocument>(
   {
     expert: {
       type: Schema.Types.ObjectId,
@@ -76,29 +74,29 @@ const ServiceSchema = new Schema<IServiceDocument>(
 );
 
 // Create indexes for faster queries
-ServiceSchema.index({ expert: 1 });
-ServiceSchema.index({ title: 'text', description: 'text' }); // Text search index
-ServiceSchema.index({ location: 1 });
-ServiceSchema.index({ price: 1 }); // For price-based filtering
-ServiceSchema.index({ category: 1 }); // For category-based filtering
-ServiceSchema.index({ active: 1 }); // For filtering active/inactive services
+ListingSchema.index({ expert: 1 });
+ListingSchema.index({ title: 'text', description: 'text' }); // Text search index
+ListingSchema.index({ location: 1 });
+ListingSchema.index({ price: 1 }); // For price-based filtering
+ListingSchema.index({ category: 1 }); // For category-based filtering
+ListingSchema.index({ active: 1 }); // For filtering active/inactive services
 
 // Define a virtual for future booking relationship
-ServiceSchema.virtual('bookings', {
+ListingSchema.virtual('bookings', {
   ref: 'Booking',
   localField: '_id',
-  foreignField: 'service',
+  foreignField: 'listing',
 });
 
 // Virtual for average rating from reviews
-ServiceSchema.virtual('averageRating', {
+ListingSchema.virtual('averageRating', {
   ref: 'Review',
   localField: '_id',
-  foreignField: 'service',
+  foreignField: 'listing',
 });
 
 // Ensure virtuals are included when converting to JSON
-ServiceSchema.set('toJSON', {
+ListingSchema.set('toJSON', {
   virtuals: true,
   transform: (
     doc: mongoose.Document,
@@ -110,5 +108,5 @@ ServiceSchema.set('toJSON', {
   },
 });
 
-const Service = mongoose.model<IServiceDocument>('Service', ServiceSchema);
-export default Service;
+const Listing = mongoose.model<IListingDocument>('Listing', ListingSchema);
+export default Listing;
