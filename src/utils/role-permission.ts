@@ -1,9 +1,4 @@
-import {
-  Roles,
-  Permissions,
-  PermissionType,
-  RoleType,
-} from '../enums/user-role.enum';
+import { Permissions, PermissionType, RoleType } from '../enums/user-role.enum';
 
 export const RolePermissions: Record<RoleType, Array<PermissionType>> = {
   CUSTOMER: [
