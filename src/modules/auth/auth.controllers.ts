@@ -38,10 +38,7 @@ const isProduction = config.NODE_ENV === 'production';
 
 export const registerUserController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    const role = req.params.role;
-
-    console.log(role);
-    console.log(typeof role);
+    const role = req.query.role;
 
     const validRoles = ['customer', 'expert'];
 
