@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+
+import jwt from 'jsonwebtoken';
 import { HTTPSTATUS } from '../../configs/http.config';
 import asyncHandler from '../../middlewares/asyncHandler';
 import {
@@ -25,7 +27,7 @@ import {
 import UserModel from '../user/model/user.model';
 import { BadRequestException, NotFoundException } from '../../utils/appError';
 import AsyncHandler from '../../middlewares/asyncHandler';
-import { RoleEnum } from '../../enums/user-role.enum';
+
 import generateJwtToken from '../../utils/generateJwt';
 import logger from '../../utils/logger';
 import { ProviderEnum } from '../../enums/account-provider.enum';
@@ -36,10 +38,17 @@ const isProduction = config.NODE_ENV === 'production';
 
 export const registerUserController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
+    const role = req.params.role;
+
+    const validRoles = ['customer', 'expert'];
+
+    if (!role || typeof role !== 'string' || !validRoles.includes(role)) {
+      throw new BadRequestException('User role not valid');
+    }
+
     const body = RegisterUserSchema.parse({ ...req.body });
 
     const { email } = body;
-
     const existingUser = await UserModel.findOne({ email });
 
     if (existingUser) {
@@ -49,7 +58,7 @@ export const registerUserController = asyncHandler(
     await checkOtpRestrictions(email, next);
     await trackOtpRequests(email, next);
 
-    await sendRegisterOtp(body, 'user-activation-mail');
+    await sendRegisterOtp(role.toUpperCase(), body, 'user-activation-mail');
 
     return res.status(HTTPSTATUS.OK).json({
       success: true,
@@ -64,7 +73,7 @@ export const verifyUserRegistrationController = AsyncHandler(
 
     const userData = await verifyRegisterOtp(body.email, body.otp);
 
-    const { email, hashedPassword, name, phone } = userData;
+    const { email, hashedPassword, name, phone, role } = userData;
 
     const account = {
       provider: ProviderEnum.EMAIL,
@@ -78,7 +87,7 @@ export const verifyUserRegistrationController = AsyncHandler(
       email,
       password: hashedPassword,
       phone,
-      role: RoleEnum.CUSTOMER,
+      role,
       account,
     });
 
@@ -86,7 +95,7 @@ export const verifyUserRegistrationController = AsyncHandler(
 
     return res.status(HTTPSTATUS.CREATED).json({
       success: true,
-      message: 'User registered successfully',
+      message: 'Email verified successfully',
     });
   }
 );
@@ -98,11 +107,16 @@ export const loginUserController = AsyncHandler(
     const { email, password } = body;
 
     const user = await validateUserCredentials(email, password);
-
-    const { accessToken, refreshToken } = await generateJwtToken(user);
-
-    const userOmitPassword = user.omitPassword();
     const loginMetadata = getLoginMetadata(req);
+
+    const { accessToken, refreshToken } = await generateJwtToken(
+      user,
+      loginMetadata.device,
+      loginMetadata.ipAddress
+    );
+
+    //strip the user password from response
+    const userOmitPassword = user.omitPassword();
 
     await sendLoginNotification(
       email,
@@ -117,12 +131,16 @@ export const loginUserController = AsyncHandler(
         httpOnly: true,
         secure: isProduction,
         sameSite: isProduction ? 'none' : 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       })
       .json({
         success: true,
         message: 'login successful',
-        user: userOmitPassword,
+        user: {
+          id: userOmitPassword._id,
+          name: userOmitPassword.name,
+          role: userOmitPassword.role,
+        },
         token: accessToken,
       });
   }
@@ -196,20 +214,20 @@ export const refreshTokenController = AsyncHandler(
     }
     logger.info('Refresh token verified ');
     // generate new tokens for user
-    const { accessToken, refreshToken } = await generateJwtToken(user);
-
-    return res
-      .status(HTTPSTATUS.OK)
-      .cookie('jwt', refreshToken, {
-        httpOnly: true,
-        sameSite: 'none',
-        secure: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      })
-      .json({
-        success: true,
-        token: accessToken,
-      });
+    const accessToken = jwt.sign(
+      {
+        user: {
+          id: user._id,
+          role: user.role,
+        },
+      },
+      config.ACCESS_TOKEN,
+      { expiresIn: '5m' }
+    );
+    return res.status(HTTPSTATUS.OK).json({
+      success: true,
+      token: accessToken,
+    });
   }
 );
 

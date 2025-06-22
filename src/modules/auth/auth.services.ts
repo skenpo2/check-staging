@@ -1,5 +1,6 @@
 import { NextFunction } from 'express';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 import { BadRequestException, NotFoundException } from '../../utils/appError';
 import redis from '../../redis';
@@ -13,7 +14,6 @@ import { IRegisterUser } from '../../validations/auth.validations';
 import { hashPassword } from '../../utils/argonPassword';
 import { config } from '../../configs/app.config';
 import { LoginMetadata } from '../../utils/getLoginMetaData';
-import generateJwtToken from '../../utils/generateJwt';
 
 export const googleLoginOrCreateAccountService = async (body: {
   provider: ProviderEnumType;
@@ -107,27 +107,68 @@ export const trackOtpRequests = async (email: string, next: NextFunction) => {
 };
 
 export const sendRegisterOtp = async (
+  role: string,
   user: IRegisterUser,
   template: string
 ) => {
-  const otp = crypto.randomInt(100000, 999999);
+  try {
+    const otp = crypto.randomInt(100000, 999999);
 
-  const { email, name, phone, password } = user;
-  const hashedPassword = await hashPassword(password);
+    const { email, name, phone, password } = user;
+    const hashedPassword = await hashPassword(password);
 
-  const otpData = {
-    email,
-    name,
-    phone,
-    hashedPassword,
-    otp,
-  };
-  await sendEmail(email, 'Verify your Email', template, { name, otp });
+    const otpData = {
+      email,
+      name,
+      phone,
+      hashedPassword,
+      role,
+      otp,
+    };
+    await Promise.all([
+      sendEmail(email, 'Verify your Email', template, { name, otp }),
 
-  // Store OTP + user data for 5 minutes
-  await redis.set(`otp_data:${email}`, JSON.stringify(otpData), 'EX', 300);
+      //store user data for 30 minutes
+      redis.set(`otp_data:${email}`, JSON.stringify(otpData), 'EX', 1800),
+      redis.set(`otp_cooldown:${user.email}`, 'true', 'EX', 60),
+    ]);
+  } catch (error) {
+    throw error;
+  }
+};
 
-  await redis.set(`otp_cooldown:${user.email}`, 'true', 'EX', 60);
+export const resendRegisterOtp = async (email: string, template: string) => {
+  try {
+    const otp = crypto.randomInt(100000, 999999);
+
+    const storedOtpString = await redis.get(`otp_data:${email}`);
+    if (!storedOtpString) {
+      throw new BadRequestException('Invalid details, kindly sign-up again');
+    }
+
+    const storedData = JSON.parse(storedOtpString);
+
+    const otpData = {
+      email: storedData.email,
+      name: storedData.name,
+      phone: storedData.phone,
+      hashedPassword: storedData.hashedPassword,
+      role: storedData.role,
+      otp,
+    };
+
+    await Promise.all([
+      redis.del(`otp_data:${email}`),
+      sendEmail(email, 'Verify your Email', template, {
+        name: otpData.name,
+        otp,
+      }),
+      redis.set(`otp_data:${email}`, JSON.stringify(otpData), 'EX', 1800),
+      redis.set(`otp_cooldown:${email}`, 'true', 'EX', 60),
+    ]);
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const verifyRegisterOtp = async (email: string, otp: string) => {
@@ -219,7 +260,16 @@ export const trackResetLinkRequests = async (email: string) => {
 
 export const sendPasswordResetLink = async (user: IUser, template: string) => {
   try {
-    const { accessToken } = await generateJwtToken(user);
+    const accessToken = jwt.sign(
+      {
+        user: {
+          id: user._id,
+          role: user.role,
+        },
+      },
+      config.ACCESS_TOKEN,
+      { expiresIn: '10m' }
+    );
     const { name, email } = user;
 
     // Generate password reset link
@@ -263,49 +313,52 @@ export const validateUserCredentials = async (
   email: string,
   password: string
 ) => {
-  const normalizedEmail = email.toLowerCase();
-  const lockKey = `login_lock:${normalizedEmail}`;
-  const failedAttemptsKey = `login_attempts:${normalizedEmail}`;
+  try {
+    const normalizedEmail = email.toLowerCase();
+    const lockKey = `login_lock:${normalizedEmail}`;
+    const failedAttemptsKey = `login_attempts:${normalizedEmail}`;
 
-  const user = await UserModel.findOne({ email: normalizedEmail });
-  if (!user) {
-    throw new NotFoundException('Invalid login credentials');
-  }
+    const user = await UserModel.findOne({ email: normalizedEmail });
+    if (!user) {
+      throw new NotFoundException('Invalid login credentials');
+    }
 
-  const isLocked = await redis.get(lockKey);
-  if (isLocked) {
-    throw new BadRequestException(
-      'Account locked due to multiple failed login attempts, Try again after 30 minutes'
-    );
-  }
-
-  console.log(user.password);
-  console.log(password);
-  const isPassword = await user.comparePassword(password);
-  const failedAttempts = parseInt((await redis.get(failedAttemptsKey)) || '0');
-
-  if (!isPassword) {
-    if (failedAttempts >= 4) {
-      await redis.set(lockKey, 'locked', 'EX', 1800); // lock for 30 mins
+    const isLocked = await redis.get(lockKey);
+    if (isLocked) {
       throw new BadRequestException(
-        'Too many failed login attempts, your account is locked for 30 minutes'
+        'Account locked due to multiple failed login attempts, Try again after 30 minutes'
+      );
+    }
+    const isPassword = await user.comparePassword(password);
+    const failedAttempts = parseInt(
+      (await redis.get(failedAttemptsKey)) || '0'
+    );
+
+    if (!isPassword) {
+      if (failedAttempts >= 4) {
+        await redis.set(lockKey, 'locked', 'EX', 1800); // lock for 30 mins
+        throw new BadRequestException(
+          'Too many failed login attempts, your account is locked for 30 minutes'
+        );
+      }
+
+      await redis.set(failedAttemptsKey, failedAttempts + 1, 'EX', 1800);
+      logger.warn?.(
+        `Login attempt failed for ${normalizedEmail}, attempt: ${
+          failedAttempts + 1
+        }`
+      );
+
+      throw new BadRequestException(
+        `Invalid details. ${4 - failedAttempts} attempts left.`
       );
     }
 
-    await redis.set(failedAttemptsKey, failedAttempts + 1, 'EX', 1800);
-    logger.warn?.(
-      `Login attempt failed for ${normalizedEmail}, attempt: ${
-        failedAttempts + 1
-      }`
-    );
-
-    throw new BadRequestException(
-      `Invalid details. ${4 - failedAttempts} attempts left.`
-    );
+    await redis.del(failedAttemptsKey);
+    return user;
+  } catch (error) {
+    throw error;
   }
-
-  await redis.del(failedAttemptsKey);
-  return user;
 };
 
 export const verifyRefreshTokenService = async (refreshToken: string) => {
@@ -365,14 +418,18 @@ export const sendLoginNotification = async (
   name: string,
   data: LoginMetadata
 ) => {
-  const { ipAddress, device, location, loginTime, rawDeviceInfo } = data;
+  try {
+    const { ipAddress, device, location, loginTime, rawDeviceInfo } = data;
 
-  await sendEmail(email, 'Login Notification', template, {
-    ipAddress,
-    device,
-    location,
-    loginTime,
-    rawDeviceInfo,
-    name,
-  });
+    await sendEmail(email, 'Login Notification', template, {
+      ipAddress,
+      device,
+      location,
+      loginTime,
+      rawDeviceInfo,
+      name,
+    });
+  } catch (error) {
+    throw error;
+  }
 };
