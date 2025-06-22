@@ -40,6 +40,9 @@ export const registerUserController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const role = req.params.role;
 
+    console.log(role);
+    console.log(typeof role);
+
     const validRoles = ['customer', 'expert'];
 
     if (!role || typeof role !== 'string' || !validRoles.includes(role)) {
