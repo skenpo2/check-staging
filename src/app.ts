@@ -12,6 +12,9 @@ import logger from './utils/logger';
 
 const app = express();
 
+//PROXY SETUP
+app.set('trust proxy', 1);
+
 //USE PASSPORT
 app.use(passport.initialize());
 
