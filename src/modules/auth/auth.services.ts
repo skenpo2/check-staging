@@ -299,8 +299,9 @@ export const setNewPassword = async (
     if (!user || user.email.toString() !== email) {
       throw new NotFoundException('User not found or invalid details');
     }
+    const hashedPassword = await hashPassword(password);
 
-    user.password = await hashPassword(password);
+    user.password = hashedPassword;
     await user.save();
 
     return user;
