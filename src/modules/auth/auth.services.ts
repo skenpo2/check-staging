@@ -273,7 +273,9 @@ export const sendPasswordResetLink = async (user: IUser, template: string) => {
     const { name, email } = user;
 
     // Generate password reset link
-    const resetLink = `${config.FRONTEND_ORIGIN}?d=${email}&t=${accessToken}`;
+    const resetLink = `${config.FRONTEND_ORIGIN}?d=${encodeURIComponent(
+      email
+    )}&t=${encodeURIComponent(accessToken)}`;
 
     // Send reset email
     await sendEmail(email, 'Reset your Password', template, {

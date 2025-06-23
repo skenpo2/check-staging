@@ -33,6 +33,7 @@ import logger from '../../utils/logger';
 import { ProviderEnum } from '../../enums/account-provider.enum';
 import { config } from '../../configs/app.config';
 import { getLoginMetadata } from '../../utils/getLoginMetaData';
+import redis from '../../redis';
 
 const isProduction = config.NODE_ENV === 'production';
 
