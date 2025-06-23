@@ -22,12 +22,9 @@ app.use(passport.initialize());
 app.use(helmet());
 app.use(
   cors({
-    origin: [
-      'https://checkslate-project.netlify.app/',
-      'http://localhost:5173',
-    ],
+    origin: ['https://checkslate-project.netlify.app', 'http://localhost:5173'],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'], //
+    allowedHeaders: ['Content-Type', 'Authorization'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
   })
 );
