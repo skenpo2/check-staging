@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { HTTPSTATUS } from '../../configs/http.config';
 import asyncHandler from '../../middlewares/asyncHandler';
-import { BadRequestException, InternalServerException } from '../../utils/appError';
+import { BadRequestException } from '../../utils/appError';
 import logger from '../../utils/logger';
 import { 
   createPaymentRecord, 
@@ -25,195 +25,151 @@ import {
  */
 export const initializePaymentController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      // Parse and validate request body with Zod schema
-      const { amount, email, bookingId, serviceId, expertId } = InitializePaymentSchema.parse(req.body);
-      
-      // Generate a unique transaction reference
-      const reference = generateTransactionReference();
-      
-      // Store metadata for use in webhook/callback
-      const metadata = {
-        bookingId,
-        serviceId,
-        expertId,
-        customerId: req.user?._id
-      };
+    // Parse and validate request body with Zod schema
+    const { amount, email, bookingId, serviceId, expertId } = InitializePaymentSchema.parse(req.body);
 
-      // Initialize payment with Paystack
-      const paymentInitResult = await initializePaystackPayment(
-        amount,
-        email,
-        reference,
-        metadata
-      );
+    // Generate a unique transaction reference
+    const reference = generateTransactionReference();
 
-      // Create a pending payment record in our database
-      await createPaymentRecord({
-        booking: new mongoose.Types.ObjectId(bookingId),
-        customer: new mongoose.Types.ObjectId(req.user?._id.toString()),
-        service: new mongoose.Types.ObjectId(serviceId),
-        expert: new mongoose.Types.ObjectId(expertId),
-        amount: amount,
-        transactionReference: reference,
-        status: 'pending'
-      });
+    // Store metadata for use in webhook/callback
+    const metadata = {
+      bookingId,
+      serviceId,
+      expertId,
+      customerId: req.user?._id
+    };
 
-      return res.status(HTTPSTATUS.OK).json({
-        success: true,
-        message: 'Payment initialized',
-        data: {
-          authorizationUrl: paymentInitResult.authorization_url,
-          accessCode: paymentInitResult.access_code,
-          reference: paymentInitResult.reference
-        }
-      });
-    } catch (error) {
-      logger.error(`Error initializing payment: ${error}`);
-      if (error instanceof BadRequestException) {
-        return next(error);
+    // Initialize payment with Paystack
+    const paymentInitResult = await initializePaystackPayment(
+      amount,
+      email,
+      reference,
+      metadata
+    );
+
+    // Create a pending payment record in our database
+    await createPaymentRecord({
+      booking: new mongoose.Types.ObjectId(bookingId),
+      customer: new mongoose.Types.ObjectId(req.user?._id.toString()),
+      service: new mongoose.Types.ObjectId(serviceId),
+      expert: new mongoose.Types.ObjectId(expertId),
+      amount: amount,
+      transactionReference: reference,
+      status: 'pending'
+    });
+
+    return res.status(HTTPSTATUS.OK).json({
+      success: true,
+      message: 'Payment initialized',
+      data: {
+        authorizationUrl: paymentInitResult.authorization_url,
+        accessCode: paymentInitResult.access_code,
+        reference: paymentInitResult.reference
       }
-      return next(new InternalServerException('Failed to initialize payment'));
-    }
+    });
   }
 );
 
 export const verifyPaymentController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { reference } = VerifyPaymentSchema.parse(req.body);
+    const { reference } = VerifyPaymentSchema.parse(req.body);
 
-      // Verify payment with Paystack
-      const verificationResult = await verifyPaystackPayment(reference);
+    // Verify payment with Paystack
+    const verificationResult = await verifyPaystackPayment(reference);
 
-      // Check if payment was successful
-      if (verificationResult.status === 'success') {
-        // Update our payment record
-        await updatePaymentStatus(
-          reference, 
-          'success',
-          verificationResult.id.toString()
-        );
+    // Check if payment was successful
+    if (verificationResult.status === 'success') {
+      // Update our payment record
+      await updatePaymentStatus(
+        reference, 
+        'success',
+        verificationResult.id.toString()
+      );
 
-        return res.status(HTTPSTATUS.OK).json({
-          success: true,
-          message: 'Payment verified successfully',
-          data: verificationResult
-        });
-      } else {
-        // Update our payment record to failed
-        await updatePaymentStatus(reference, 'failed');
+      return res.status(HTTPSTATUS.OK).json({
+        success: true,
+        message: 'Payment verified successfully',
+        data: verificationResult
+      });
+    } else {
+      // Update our payment record to failed
+      await updatePaymentStatus(reference, 'failed');
 
-        return res.status(HTTPSTATUS.BAD_REQUEST).json({
-          success: false,
-          message: 'Payment verification failed',
-          data: verificationResult
-        });
-      }
-    } catch (error) {
-      logger.error(`Error verifying payment: ${error}`);
-      if (error instanceof BadRequestException) {
-        return next(error);
-      }
-      return next(new InternalServerException('Failed to verify payment'));
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Payment verification failed',
+        data: verificationResult
+      });
     }
   }
 );
 
-/**
- * Webhook handler for Paystack payment events
- */
 export const paystackWebhookController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      // Verify webhook signature from Paystack
-      const signature = req.headers['x-paystack-signature'] as string;
-      if (!signature) {
-        logger.error('No Paystack signature found in webhook request');
-        return res.status(HTTPSTATUS.BAD_REQUEST).json({
-          success: false,
-          message: 'Invalid webhook signature'
-        });
-      }
-      
-      // Verify the signature using the service method
-      const payload = JSON.stringify(req.body);
-      const isValidSignature = verifyPaystackWebhookSignature(signature, payload);
-      
-      if (!isValidSignature) {
-        logger.error('Invalid Paystack webhook signature');
-        return res.status(HTTPSTATUS.BAD_REQUEST).json({
-          success: false,
-          message: 'Invalid webhook signature'
-        });
-      }
-
-      // Process the event using the service method
-      const result = await handlePaystackWebhookEvent(req.body);
-
-      // Always respond with 200 to acknowledge receipt, even if there was an issue processing
-      return res.status(HTTPSTATUS.OK).json({
-        success: true,
-        message: 'Webhook received'
-      });
-    } catch (error) {
-      logger.error(`Error processing webhook: ${error}`);
-      // Still return 200 to acknowledge receipt
-      return res.status(HTTPSTATUS.OK).json({
-        success: true,
-        message: 'Webhook received'
+    // Verify webhook signature from Paystack
+    const signature = req.headers['x-paystack-signature'] as string;
+    if (!signature) {
+      logger.error('No Paystack signature found in webhook request');
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Invalid webhook signature'
       });
     }
+    
+    // Verify the signature using the service method
+    const payload = JSON.stringify(req.body);
+    const isValidSignature = verifyPaystackWebhookSignature(signature, payload);
+    
+    if (!isValidSignature) {
+      logger.error('Invalid Paystack webhook signature');
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Invalid webhook signature'
+      });
+    }
+
+    // Process the event using the service method
+    await handlePaystackWebhookEvent(req.body);
+
+    // Always respond with 200 to acknowledge receipt, even if there was an issue processing
+    return res.status(HTTPSTATUS.OK).json({
+      success: true,
+      message: 'Webhook received'
+    });
   }
 );
 
 export const getPaymentController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { reference } = req.params;
-      const payment = await getPaymentByReference(reference);
+    const { reference } = req.params;
+    const payment = await getPaymentByReference(reference);
 
-      // Check if user is authorized to access this payment
-      if (
-        payment.customer._id.toString() !== req.user?._id.toString() &&
-        payment.expert._id.toString() !== req.user?._id.toString() &&
-        req.user?.role !== 'admin'
-      ) {
-        return next(new BadRequestException('You are not authorized to access this payment'));
-      }
-
-      return res.status(HTTPSTATUS.OK).json({
-        success: true,
-        data: payment
-      });
-    } catch (error) {
-      logger.error(`Error fetching payment: ${error}`);
-      if (error instanceof BadRequestException) {
-        return next(error);
-      }
-      return next(new InternalServerException('Failed to fetch payment details'));
+    // Check if user is authorized to access this payment
+    if (
+      payment.customer._id.toString() !== req.user?._id.toString() &&
+      payment.expert._id.toString() !== req.user?._id.toString() &&
+      req.user?.role !== 'admin'
+    ) {
+      return next(new BadRequestException('You are not authorized to access this payment'));
     }
+
+    return res.status(HTTPSTATUS.OK).json({
+      success: true,
+      data: payment
+    });
   }
 );
 
 export const getUserPaymentsController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = new mongoose.Types.ObjectId(req.user?._id.toString());
-      const role = req.query.role === 'expert' ? 'expert' : 'customer';
+    const userId = new mongoose.Types.ObjectId(req.user?._id.toString());
+    const role = req.query.role === 'expert' ? 'expert' : 'customer';
 
-      const payments = await getUserPayments(userId, role);
+    const payments = await getUserPayments(userId, role);
 
-      return res.status(HTTPSTATUS.OK).json({
-        success: true,
-        data: payments
-      });
-    } catch (error) {
-      logger.error(`Error fetching user payments: ${error}`);
-      if (error instanceof BadRequestException) {
-        return next(error);
-      }
-      return next(new InternalServerException('Failed to fetch payment history'));
-    }
+    return res.status(HTTPSTATUS.OK).json({
+      success: true,
+      data: payments
+    });
   }
 );
