@@ -1,10 +1,10 @@
 import jwt from 'jsonwebtoken';
-import { UserDocument } from '../models/user.model';
-import { config } from '../configs/app.config';
 import crypto from 'crypto';
 import RefreshTokenModel from '../modules/auth/models/refreshToken.model';
+import { IUser } from '../modules/user/model/user.model';
+import { config } from '../configs/app.config';
 
-const generateJwtToken = async (user: UserDocument) => {
+const generateJwtToken = async (user: IUser) => {
   const accessToken = jwt.sign(
     {
       user: {
@@ -12,7 +12,7 @@ const generateJwtToken = async (user: UserDocument) => {
       },
     },
     config.ACCESS_TOKEN,
-    { expiresIn: '1h' }
+    { expiresIn: '5m' }
   );
 
   const refreshToken = crypto.randomBytes(40).toString('hex');

@@ -1,7 +1,10 @@
-import { UserDocument } from '../models/user.model';
+import { IUser as UserType } from '../modules/user/model/user.model';
 
 declare global {
   namespace Express {
-    interface User extends UserDocument {}
+    interface User extends UserType {
+      _id?: any;
+      role: string;
+    }
   }
 }
