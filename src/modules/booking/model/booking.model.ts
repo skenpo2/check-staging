@@ -10,6 +10,8 @@ interface IBookingBase {
   listing: mongoose.Types.ObjectId;
   expert: mongoose.Types.ObjectId | IUser;
   status: BookingStatusEnumType;
+  price: number;
+  platformFee: number;
   scheduledAt: Date;
   calendarEventId?: string;
 }
@@ -50,6 +52,18 @@ const BookingSchema = new Schema<IBooking>(
       default: BookingStatusEnum.PENDING,
       required: [true, 'Status is required'],
     },
+
+    price: {
+      type: Number,
+      required: [true, 'Price is required'],
+      min: [10000, 'Minimum price is ₦10,000'],
+      max: [999999, 'Maximum price is ₦999,999'],
+    },
+
+    platformFee: {
+      type: Number,
+      default: 0, // will be updated before save
+    },
     scheduledAt: {
       type: Date,
       required: [true, 'Scheduled date is required'],
@@ -69,6 +83,12 @@ const BookingSchema = new Schema<IBooking>(
     timestamps: true,
   }
 );
+
+BookingSchema.pre('save', function (next) {
+  // Set platformFee to 10% of price
+  this.platformFee = Math.round(this.price * 0.1);
+  next();
+});
 
 //     const validTransitions: Record<string, string[]> = {
 //       PENDING: ['CONFIRMED', 'CANCELED'],

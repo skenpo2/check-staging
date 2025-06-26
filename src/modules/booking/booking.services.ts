@@ -41,6 +41,7 @@ export const createBookingService = async (body: IBooking) => {
       expert,
       scheduledAt,
       status: BookingStatusEnum.PENDING,
+      price: isExistingService.price,
     });
 
     return newBooking;
