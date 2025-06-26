@@ -31,6 +31,6 @@ router.post(
   passport.authenticate('jwt', { session: false }),
   setPasswordController
 );
-router.post('/refresh', refreshTokenController);
+router.get('/refresh', refreshTokenController);
 router.post('/logout', logoutController);
 export default router;

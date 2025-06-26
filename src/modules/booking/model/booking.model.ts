@@ -7,7 +7,7 @@ import { IUser } from '../../user/model/user.model';
 
 interface IBookingBase {
   customer: mongoose.Types.ObjectId | IUser;
-  service: mongoose.Types.ObjectId;
+  listing: mongoose.Types.ObjectId;
   expert: mongoose.Types.ObjectId | IUser;
   status: BookingStatusEnumType;
   scheduledAt: Date;
@@ -34,10 +34,10 @@ const BookingSchema = new Schema<IBooking>(
       ref: 'User',
       required: [true, 'Customer is required'],
     },
-    service: {
+    listing: {
       type: Schema.Types.ObjectId,
-      ref: 'Service',
-      required: [true, 'Service is required'],
+      ref: 'Listing',
+      required: [true, 'Listing is required'],
     },
     expert: {
       type: Schema.Types.ObjectId,
@@ -60,6 +60,7 @@ const BookingSchema = new Schema<IBooking>(
         message: 'Scheduled date must be in the future',
       },
     },
+
     calendarEventId: {
       type: String,
     },
