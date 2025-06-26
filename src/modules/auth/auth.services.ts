@@ -387,8 +387,6 @@ export const verifyRefreshTokenService = async (refreshToken: string) => {
 
       throw new NotFoundException('User does not exist');
     }
-    //delete the old refresh token
-    await RefreshTokenModel.deleteOne({ _id: storedToken._id });
 
     return user;
   } catch (error) {
