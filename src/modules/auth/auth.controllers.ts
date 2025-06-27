@@ -140,6 +140,7 @@ export const loginUserController = AsyncHandler(
         user: {
           id: userOmitPassword._id,
           name: userOmitPassword.name,
+          email: userOmitPassword.email,
           role: userOmitPassword.role,
         },
         token: accessToken,
@@ -228,6 +229,12 @@ export const refreshTokenController = AsyncHandler(
     return res.status(HTTPSTATUS.OK).json({
       success: true,
       token: accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   }
 );

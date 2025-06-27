@@ -4,6 +4,9 @@ declare global {
   namespace Express {
     interface User extends IUser {
       _id?: any;
+      name: any;
+      email: any;
+      role: any;
     }
   }
 }
