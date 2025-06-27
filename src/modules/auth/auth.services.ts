@@ -260,6 +260,8 @@ export const trackResetLinkRequests = async (email: string) => {
 
 export const sendPasswordResetLink = async (user: IUser, template: string) => {
   try {
+    //delete all user refresh tokens
+    await RefreshTokenModel.deleteMany({ user: user._id });
     const accessToken = jwt.sign(
       {
         user: {
@@ -273,9 +275,11 @@ export const sendPasswordResetLink = async (user: IUser, template: string) => {
     const { name, email } = user;
 
     // Generate password reset link
-    const resetLink = `${config.FRONTEND_ORIGIN}?d=${encodeURIComponent(
-      email
-    )}&t=${encodeURIComponent(accessToken)}`;
+    const resetLink = `${
+      config.FRONTEND_ORIGIN
+    }/reset-password?d=${encodeURIComponent(email)}&t=${encodeURIComponent(
+      accessToken
+    )}`;
 
     // Send reset email
     await sendEmail(email, 'Reset your Password', template, {
@@ -402,7 +406,7 @@ export const logOutService = async (refreshToken: string) => {
     });
     if (!storedToken) {
       logger.warn('Invalid refresh token provided');
-      throw new NotFoundException('Invalid refresh token');
+      throw new NotFoundException('Error occur');
     }
 
     logger.info('Refresh token deleted for logout');
