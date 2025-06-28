@@ -7,6 +7,7 @@ declare global {
       name: any;
       email: any;
       role: any;
+      isVerified: any;
     }
   }
 }

@@ -156,6 +156,7 @@ export const loginUserController = AsyncHandler(
           name: userOmitPassword.name,
           email: userOmitPassword.email,
           role: userOmitPassword.role,
+          isVerified: userOmitPassword.isVerified,
         },
         token: accessToken,
       });
@@ -248,6 +249,7 @@ export const refreshTokenController = AsyncHandler(
         name: user.name,
         email: user.email,
         role: user.role,
+        isVerified: user.isVerified,
       },
     });
   }

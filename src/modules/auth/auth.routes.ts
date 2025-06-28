@@ -24,6 +24,7 @@ router.get(
         name: req?.user?.name,
         email: req?.user?.email,
         role: req?.user?.role,
+        isVerified: req?.user?.isVerified,
       },
     });
   }
