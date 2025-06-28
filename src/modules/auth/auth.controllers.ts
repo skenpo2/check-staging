@@ -14,6 +14,7 @@ import {
   checkOtpRestrictions,
   checkResetLinkRestrictions,
   logOutService,
+  resendRegisterOtp,
   sendLoginNotification,
   sendPasswordResetLink,
   sendRegisterOtp,
@@ -67,7 +68,20 @@ export const registerUserController = asyncHandler(
     });
   }
 );
+export const resendRegisterOtpController = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const body = UserEmailSchema.parse({ ...req.body });
+    const { email } = body;
+    await checkOtpRestrictions(email, next);
+    await trackOtpRequests(email, next);
+    await resendRegisterOtp(email, 'user-activation-mail');
 
+    return res.status(HTTPSTATUS.OK).json({
+      success: true,
+      message: 'Verify your email to continue',
+    });
+  }
+);
 export const verifyUserRegistrationController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const body = VerifyRegisterUserSchema.parse({ ...req.body });

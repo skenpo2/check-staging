@@ -5,6 +5,7 @@ import {
   logoutController,
   refreshTokenController,
   registerUserController,
+  resendRegisterOtpController,
   setPasswordController,
   verifyUserRegistrationController,
 } from './auth.controllers';
@@ -28,6 +29,7 @@ router.get(
   }
 );
 router.post('/register', registerUserController);
+router.post('/resend-otp', resendRegisterOtpController);
 router.post('/verify-registration', verifyUserRegistrationController);
 router.post('/login', loginUserController);
 router.post('/forgot-password', forgotPasswordController);
