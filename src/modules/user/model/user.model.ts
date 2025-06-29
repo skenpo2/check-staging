@@ -9,9 +9,6 @@ import {
 } from '../../../enums/account-provider.enum';
 import { RoleEnum } from '../../../enums/user-role.enum';
 
-// Interface for KYC data in the MongoDB document
-export interface IKYC extends IKYCData {}
-
 export interface IAccount extends Document {
   provider: ProviderEnumType;
   providerId: string; // Store the email, googleId, facebookId as the providerId
@@ -22,7 +19,6 @@ export interface IAccount extends Document {
 // Interface for User MongoDB document - extends the Zod user schema type
 export interface IUser extends Omit<IUserSchema, 'kyc'>, Document {
   profilePicture?: String;
-  kyc?: IKYC;
   account: IAccount;
   createdAt: Date;
   updatedAt: Date;
@@ -31,13 +27,6 @@ export interface IUser extends Omit<IUserSchema, 'kyc'>, Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
   omitPassword(): Omit<IUser, 'password'>;
 }
-
-// KYC Schema for MongoDB
-const KYCSchema = new Schema<IKYC>({
-  idType: { type: String, required: true },
-  idNumber: { type: String, required: true },
-  idImageUrl: { type: String, required: true },
-});
 
 const AccountSchema = new Schema<IAccount>({
   provider: {
@@ -90,10 +79,6 @@ const UserSchema = new Schema<IUser>(
     account: {
       type: AccountSchema,
       required: true,
-    },
-    kyc: {
-      type: KYCSchema,
-      required: false,
     },
   },
   {
