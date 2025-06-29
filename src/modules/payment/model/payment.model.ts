@@ -1,11 +1,11 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Document, Schema } from 'mongoose';
 
 // TODO: If a Zod schema exists for Payment, import it like:
 // import { IPayment as IPaymentSchema } from '../schemas/payment.schema';
 
-type PaymentPlatform = "Paystack" | "Flutterwave";
-type PaymentStatus = "pending" | "success" | "failed" | "refunded";
-type ReleaseStatus = "pending" | "released" | "disputed";
+type PaymentPlatform = 'Paystack' | 'Flutterwave';
+type PaymentStatus = 'pending' | 'success' | 'failed' | 'refunded';
+type ReleaseStatus = 'pending' | 'released' | 'disputed';
 
 interface IPaymentBase {
   booking: mongoose.Types.ObjectId;
@@ -36,106 +36,108 @@ export interface IPaymentDocument extends IPaymentBase, Document {
 
 const PaymentSchema = new Schema<IPayment>(
   {
-    booking: { 
-      type: Schema.Types.ObjectId, 
-      ref: "Booking", 
+    booking: {
+      type: Schema.Types.ObjectId,
+      ref: 'Booking',
       required: [true, 'Booking is required'],
-      index: true 
+      index: true,
     },
-    customer: { 
-      type: Schema.Types.ObjectId, 
-      ref: "User", 
+    customer: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: [true, 'Customer is required'],
-      index: true 
+      index: true,
     },
-    service: { 
-      type: Schema.Types.ObjectId, 
-      ref: "Service", 
+    service: {
+      type: Schema.Types.ObjectId,
+      ref: 'Service',
       required: [true, 'Service is required'],
-      index: true 
+      index: true,
     },
-    expert: { 
-      type: Schema.Types.ObjectId, 
-      ref: "User", 
+    expert: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: [true, 'Expert is required'],
-      index: true 
+      index: true,
     },
-    amount: { 
-      type: Number, 
-      required: [true, 'Amount is required'],
-      min: [0, 'Amount cannot be negative']
-    },
-    platformFee: { 
+    amount: {
       type: Number,
-      min: [0, 'Platform fee cannot be negative'] 
+      required: [true, 'Amount is required'],
+      min: [0, 'Amount cannot be negative'],
     },
-    platform: { 
-      type: String, 
+    platformFee: {
+      type: Number,
+      min: [0, 'Platform fee cannot be negative'],
+    },
+    platform: {
+      type: String,
       enum: {
-        values: ["Paystack", "Flutterwave"],
-        message: "Platform must be either Paystack or Flutterwave"
+        values: ['Paystack', 'Flutterwave'],
+        message: 'Platform must be either Paystack or Flutterwave',
       },
-      required: [true, 'Payment platform is required'] 
+      required: [true, 'Payment platform is required'],
     },
-    status: { 
-      type: String, 
+    status: {
+      type: String,
       enum: {
-        values: ["pending", "success", "failed", "refunded"],
-        message: "Status must be pending, success, failed, or refunded"
+        values: ['pending', 'success', 'failed', 'refunded'],
+        message: 'Status must be pending, success, failed, or refunded',
       },
-      default: "pending",
-      index: true 
+      default: 'pending',
+      index: true,
     },
-    transactionId: { 
+    transactionId: {
       type: String,
       trim: true,
-      index: true 
+      index: true,
     },
-    transactionReference: { 
-      type: String,
-      trim: true 
-    },
-    escrowReleaseDate: { 
-      type: Date 
-    },
-    releaseStatus: { 
-      type: String, 
-      enum: ["pending", "released", "disputed"],
-      default: "pending" 
-    },
-    notes: { 
+    transactionReference: {
       type: String,
       trim: true,
-      maxlength: [500, 'Notes must not exceed 500 characters'] 
     },
-    createdAt: { 
-      type: Date, 
-      default: Date.now 
+    escrowReleaseDate: {
+      type: Date,
     },
-    updatedAt: { 
-      type: Date, 
-      default: Date.now 
-    }
+    releaseStatus: {
+      type: String,
+      enum: ['pending', 'released', 'disputed'],
+      default: 'pending',
+    },
+    notes: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Notes must not exceed 500 characters'],
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
-    timestamps: true, 
-    versionKey: false 
+    timestamps: true,
+    versionKey: false,
   }
 );
 
 // Create indexes for faster queries
-PaymentSchema.index({ booking: 1 }, { unique: true }); // One payment per booking
-PaymentSchema.index({ customer: 1 });
-PaymentSchema.index({ expert: 1 });
-PaymentSchema.index({ service: 1 });
-PaymentSchema.index({ status: 1 });
-PaymentSchema.index({ createdAt: -1 }); // For sorting by date
-PaymentSchema.index({ transactionId: 1 }, { sparse: true }); // For looking up transactions
+// PaymentSchema.index({ booking: 1 }, { unique: true }); // One payment per booking
+// PaymentSchema.index({ customer: 1 });
+// PaymentSchema.index({ expert: 1 });
+// PaymentSchema.index({ service: 1 });
+// PaymentSchema.index({ status: 1 });
+// PaymentSchema.index({ createdAt: -1 }); // For sorting by date
+// PaymentSchema.index({ transactionId: 1 }, { sparse: true }); // For looking up transactions
 
 // Method to handle payment status change
-PaymentSchema.methods.updateStatus = async function(newStatus: PaymentStatus): Promise<void> {
+PaymentSchema.methods.updateStatus = async function (
+  newStatus: PaymentStatus
+): Promise<void> {
   this.status = newStatus;
-  if (newStatus === "success") {
+  if (newStatus === 'success') {
     // If successful, calculate when to release escrow (e.g., 7 days)
     const releaseDate = new Date();
     releaseDate.setDate(releaseDate.getDate() + 7);
@@ -150,9 +152,9 @@ PaymentSchema.set('toJSON', {
   transform: (_, ret) => {
     delete ret.id;
     return ret;
-  }
+  },
 });
 
 // Create and export the Payment model
-const Payment = mongoose.model<IPayment>("Payment", PaymentSchema);
+const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);
 export default Payment;
