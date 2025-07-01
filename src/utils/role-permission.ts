@@ -1,0 +1,39 @@
+import { Permissions, PermissionType, RoleType } from '../enums/user-role.enum';
+
+export const RolePermissions: Record<RoleType, Array<PermissionType>> = {
+  CUSTOMER: [
+    Permissions.VIEW_PROFILE,
+    Permissions.EDIT_PROFILE,
+    Permissions.VIEW_LISTINGS,
+    Permissions.BOOK_SERVICE,
+    Permissions.MAKE_PAYMENT,
+    Permissions.SEND_MESSAGE,
+    Permissions.VIEW_REVIEWS,
+    Permissions.RATE_EXPERT,
+  ],
+  EXPERT: [
+    Permissions.VIEW_PROFILE,
+    Permissions.EDIT_PROFILE,
+    Permissions.CREATE_LISTING,
+    Permissions.EDIT_LISTING,
+    Permissions.DELETE_LISTING,
+    Permissions.VIEW_LISTINGS,
+    Permissions.VIEW_BOOKINGS,
+    Permissions.ACCEPT_BOOKING,
+    Permissions.REJECT_BOOKING,
+    Permissions.SEND_MESSAGE,
+    Permissions.VIEW_REVIEWS,
+  ],
+  ADMIN: [
+    Permissions.VIEW_PROFILE,
+    Permissions.EDIT_PROFILE,
+    Permissions.VIEW_LISTINGS,
+    Permissions.VIEW_ALL_USERS,
+    Permissions.DELETE_USER,
+    Permissions.VERIFY_USER,
+    Permissions.ACCESS_ANALYTICS,
+    Permissions.MANAGE_PAYMENTS,
+    Permissions.RESOLVE_DISPUTE,
+    Permissions.SEND_NOTIFICATION,
+  ],
+};

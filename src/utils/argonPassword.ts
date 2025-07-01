@@ -1,13 +1,13 @@
 import argon2 from 'argon2';
 import logger from './logger';
 
-export const hashPassword = async (password: string) => {
+export const hashPassword = async (password: string): Promise<string> => {
   try {
     const hashValue = await argon2.hash(password);
-
     return hashValue;
   } catch (error) {
     logger.error(`Argon2 hashing error ${(error as Error).message}`);
+    throw new Error('Failed to hash password');
   }
 };
 

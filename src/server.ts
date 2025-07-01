@@ -6,12 +6,13 @@ import connectDb from './configs/dB.config';
 import { config } from './configs/app.config';
 import logger from './utils/logger';
 
+const PORT = config.PORT;
 // Database connection
 connectDb();
 
-// start up the server
-app.listen(config.PORT, () => {
-  logger.info(`Server is listening on ${config.PORT} in ${config.NODE_ENV}`);
+// server
+app.listen(PORT, () => {
+  logger.info(`Server is listening on ${PORT} in ${config.NODE_ENV}`);
 });
 
 process.on('unhandledRejection', (reason, promise) => {

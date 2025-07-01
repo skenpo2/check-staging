@@ -1,18 +1,20 @@
 import jwt from 'jsonwebtoken';
-import { UserDocument } from '../models/user.model';
-import { config } from '../configs/app.config';
 import crypto from 'crypto';
 import RefreshTokenModel from '../modules/auth/models/refreshToken.model';
+import { IUser } from '../modules/user/model/user.model';
+import { config } from '../configs/app.config';
+import { UnauthorizedException } from './appError';
 
-const generateJwtToken = async (user: UserDocument) => {
+const generateJwtToken = async (user: IUser, device: string, ip: string) => {
   const accessToken = jwt.sign(
     {
       user: {
         id: user._id,
+        role: user.role,
       },
     },
     config.ACCESS_TOKEN,
-    { expiresIn: '1h' }
+    { expiresIn: '5m' }
   );
 
   const refreshToken = crypto.randomBytes(40).toString('hex');
@@ -23,6 +25,8 @@ const generateJwtToken = async (user: UserDocument) => {
     token: refreshToken,
     user: user._id,
     expiresAt,
+    device,
+    ip,
   });
 
   return { accessToken, refreshToken };
