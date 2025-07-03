@@ -10,6 +10,7 @@ interface IBookingBase {
   listing: mongoose.Types.ObjectId;
   expert: mongoose.Types.ObjectId | IUser;
   status: BookingStatusEnumType;
+  location: string;
   price: number;
   platformFee: number;
   scheduledAt: Date;
@@ -45,6 +46,11 @@ const BookingSchema = new Schema<IBooking>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Expert is required'],
+    },
+
+    location: {
+      type: String,
+      required: true,
     },
     status: {
       type: String,

@@ -1,14 +1,19 @@
 import Review from '../model/review.model';
 import Booking from '../../booking/model/booking.model';
-import { NotFoundException, BadRequestException } from '../../../utils/appError';
-import { IReview, IReview as IReviewSchema } from '../../user/schemas/review.schemas';
+import {
+  NotFoundException,
+  BadRequestException,
+} from '../../../utils/appError';
+import {
+  IReview,
+  IReview as IReviewSchema,
+} from '../../user/schemas/review.schemas';
 import User from '../../user/model/user.model';
-import mongoose from 'mongoose';
 
 const createReview = async (data: IReview) => {
   const booking = await Booking.findById(data.bookingId);
   if (!booking) throw new NotFoundException('Booking not found');
-  if (booking.status !== 'completed') {
+  if (booking.status !== 'COMPLETED') {
     throw new BadRequestException('Cannot review an incomplete booking');
   }
 
@@ -23,10 +28,9 @@ const createReview = async (data: IReview) => {
     service: data.serviceId,
     booking: data.bookingId,
     rating: data.rating,
-    review: data.review
+    review: data.review,
   });
 
-  
   return review;
 };
 
@@ -41,7 +45,7 @@ const getReviewsByCustomer = async (customerId: string) => {
 const reviewService = {
   createReview,
   getReviewsByExpert,
-  getReviewsByCustomer
+  getReviewsByCustomer,
 };
 
 export default reviewService;

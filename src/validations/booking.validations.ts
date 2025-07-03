@@ -4,6 +4,7 @@ export const BookingSchema = z.object({
   customer: z.string(),
   service: z.string(),
   expert: z.string(),
+  location: z.string(),
   scheduledAt: z.date(),
 });
 

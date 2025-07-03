@@ -10,7 +10,7 @@ import Listing from '../listing/model/listing.model';
 
 export const createBookingService = async (body: IBooking) => {
   try {
-    const { customer, service, expert, scheduledAt } = body;
+    const { customer, service, expert, location, scheduledAt } = body;
 
     // Validate ObjectIds
     if (
@@ -39,6 +39,7 @@ export const createBookingService = async (body: IBooking) => {
       customer,
       service,
       expert,
+      location,
       scheduledAt,
       status: BookingStatusEnum.PENDING,
       price: isExistingService.price,

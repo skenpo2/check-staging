@@ -16,6 +16,10 @@ const appConfig = () => ({
   GOOGLE_CALLBACK_URL: getEnv('GOOGLE_CALLBACK_URL', ''),
   GOOGLE_CLIENT_ID: getEnv('GOOGLE_CLIENT_ID', ''),
   GOOGLE_CLIENT_SECRET: getEnv('GOOGLE_CLIENT_SECRET', ''),
+
+  CLOUDINARY_SECRET: getEnv('CLOUDINARY_SECRET', ''),
+  CLOUDINARY_KEY: getEnv('CLOUDINARY_KEY', ''),
+  CLOUDINARY_NAME: getEnv('CLOUDINARY_NAME', ''),
 });
 
 export const config = appConfig();
