@@ -6,6 +6,7 @@ export const RolePermissions: Record<RoleType, Array<PermissionType>> = {
     Permissions.EDIT_PROFILE,
     Permissions.VIEW_LISTINGS,
     Permissions.BOOK_SERVICE,
+    Permissions.VIEW_BOOKINGS,
     Permissions.MAKE_PAYMENT,
     Permissions.SEND_MESSAGE,
     Permissions.VIEW_REVIEWS,
