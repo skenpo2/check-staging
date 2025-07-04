@@ -13,7 +13,7 @@ export const roleGuard = (
 ) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
-      const role = getUserRole(req);
+      const role = getUserRole(req.user);
 
       if (!role) {
         throw new UnauthorizedException('Access denied. User role not found');
