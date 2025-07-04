@@ -33,7 +33,6 @@ export const GetAllListingsQuerySchema = z.object({
   category: z.string().optional(),
   location: z.string().optional(),
   search: z.string().optional(),
-  active: z.enum(['true', 'false']).optional(),
   availability: z.enum(['AVAILABLE', 'UNAVAILABLE']).optional(),
   status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
 });

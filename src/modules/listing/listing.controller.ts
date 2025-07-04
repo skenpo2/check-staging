@@ -95,7 +95,10 @@ export const getAllListings = AsyncHandler(
 
     const [listings, total] = await Promise.all([
       Listing.find(query)
-        .sort({ createdAt: sortOrder })
+        .sort({
+          createdAt: sortOrder,
+          _id: sortOrder,
+        })
         .skip(skip)
         .limit(pageSize)
         .populate({
