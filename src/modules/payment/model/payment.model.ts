@@ -3,9 +3,9 @@ import mongoose, { Document, Schema } from 'mongoose';
 // TODO: If a Zod schema exists for Payment, import it like:
 // import { IPayment as IPaymentSchema } from '../schemas/payment.schema';
 
-type PaymentPlatform = 'Paystack' | 'Flutterwave';
-type PaymentStatus = 'pending' | 'success' | 'failed' | 'refunded';
-type ReleaseStatus = 'pending' | 'released' | 'disputed';
+export type PaymentPlatform = 'Paystack' | 'Flutterwave';
+export type PaymentStatus = 'pending' | 'success' | 'failed' | 'refunded';
+export type ReleaseStatus = 'pending' | 'released' | 'disputed';
 
 interface IPaymentBase {
   booking: mongoose.Types.ObjectId;
@@ -50,7 +50,7 @@ const PaymentSchema = new Schema<IPayment>(
     },
     service: {
       type: Schema.Types.ObjectId,
-      ref: 'Service',
+      ref: 'Listing',
       required: [true, 'Service is required'],
       index: true,
     },

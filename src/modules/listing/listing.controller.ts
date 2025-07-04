@@ -10,6 +10,7 @@ import {
 } from '../../utils/appError';
 import {
   CreateListingSchema,
+  GetAllListingsQuerySchema,
   UpdateListingSchema,
 } from '../../validations/listing.validations';
 
@@ -19,11 +20,6 @@ import {
  */
 export const createListing = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    // In the future, this endpoint will be restricted to experts only
-    // if (req.user?.role !== 'EXPERT') {
-    //   throw new UnauthorizedException('Only experts can create listings');
-    // }
-
     const body = CreateListingSchema.parse({ ...req.body });
 
     const newListing = new Listing(body);
@@ -39,6 +35,9 @@ export const createListing = AsyncHandler(
 
 export const getAllListings = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
+    // Validate query parameters
+    const parsedQuery = GetAllListingsQuerySchema.parse(req.query);
+
     const {
       page = '1',
       limit = '10',
@@ -48,13 +47,14 @@ export const getAllListings = AsyncHandler(
       maxPrice,
       category,
       location,
-      active,
       search,
-    } = req.query;
+      availability,
+      status,
+    } = parsedQuery;
 
     // Pagination setup
-    const pageNumber = parseInt(page as string, 10);
-    const pageSize = parseInt(limit as string, 10);
+    const pageNumber = parseInt(page, 10);
+    const pageSize = parseInt(limit, 10);
     const skip = (pageNumber - 1) * pageSize;
 
     // Build query
@@ -63,8 +63,8 @@ export const getAllListings = AsyncHandler(
     // Price filter
     if (minPrice || maxPrice) {
       query.price = {};
-      if (minPrice) query.price['$gte'] = parseFloat(minPrice as string);
-      if (maxPrice) query.price['$lte'] = parseFloat(maxPrice as string);
+      if (minPrice) query.price['$gte'] = parseFloat(minPrice);
+      if (maxPrice) query.price['$lte'] = parseFloat(maxPrice);
     }
 
     if (category) {
@@ -75,17 +75,22 @@ export const getAllListings = AsyncHandler(
       query.location = { $regex: location, $options: 'i' };
     }
 
-    if (active !== undefined) {
-      query.active = active === 'true';
+    if (availability) {
+      query.availability = availability;
+    }
+
+    if (status) {
+      query.status = status;
     }
 
     if (search) {
-      query['$text'] = { $search: search as string };
+      query['$text'] = { $search: search };
     }
 
     if (expertId) {
       query.expert = expertId;
     }
+
     const sortOrder = sort === 'asc' ? 1 : -1;
 
     const [listings, total] = await Promise.all([
@@ -180,14 +185,15 @@ export const deleteListing = AsyncHandler(
     const { id } = req.params;
     const currentUserId = req.user?._id;
 
-    // In the future, this endpoint will be restricted to the expert who owns the listing
-    // const listing = await Service.findById(id);
-    // if (!listing) {
-    //   throw new NotFoundException('Listing not found');
-    // }
-    // if (listing.expert.toString() !== currentUserId) {
-    //   throw new UnauthorizedException('You are not authorized to delete this listing');
-    // }
+    const listing = await Listing.findById(id);
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+    if (listing.expert.toString() !== currentUserId) {
+      throw new UnauthorizedException(
+        'You are not authorized to delete this listing'
+      );
+    }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid listing ID');

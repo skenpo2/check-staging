@@ -1,5 +1,10 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
-import { ICreateListing } from '../../../validations/listing.validations';
+import {
+  ListingAvailabilityEnum,
+  ListingAvailabilityEnumType,
+  ListingStatusEnum,
+  ListingStatusEnumType,
+} from '../../../enums/listing-enum';
 
 interface IListingBase {
   expert: Types.ObjectId;
@@ -8,8 +13,9 @@ interface IListingBase {
   price: number;
   category?: string;
   location: string;
-  availability: Date[];
-  active: boolean;
+  image?: string;
+  availability: ListingAvailabilityEnumType;
+  status: ListingStatusEnumType;
 }
 
 export interface IListing extends IListingBase {
@@ -58,13 +64,16 @@ const ListingSchema = new Schema<IListingDocument>(
       required: [true, 'Location is required'],
       trim: true,
     },
+    image: String,
     availability: {
-      type: [Date],
+      type: String,
+      enum: Object.values(ListingAvailabilityEnum),
       required: [true, 'Availability dates are required'],
     },
-    active: {
-      type: Boolean,
-      default: true,
+    status: {
+      type: String,
+      enum: Object.values(ListingStatusEnum),
+      required: true,
     },
   },
   {

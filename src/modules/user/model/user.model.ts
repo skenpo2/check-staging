@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 import argon2 from 'argon2';
 
 // Import the Zod schema types
-import { IKYCData, IUser as IUserSchema } from '../schemas/user.schema';
+import { IUser as IUserSchema } from '../schemas/user.schema';
 import {
   ProviderEnum,
   ProviderEnumType,
