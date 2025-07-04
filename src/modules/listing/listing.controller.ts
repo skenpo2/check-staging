@@ -22,7 +22,7 @@ export const createListing = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const body = CreateListingSchema.parse({ ...req.body });
 
-    const newListing = new Listing(body);
+    const newListing = new Listing({ ...body, expert: req?.user?._id });
     await newListing.save();
 
     return res.status(HTTPSTATUS.CREATED).json({
@@ -153,7 +153,7 @@ export const updateListing = AsyncHandler(
     if (!listing) {
       throw new NotFoundException('Listing not found');
     }
-    if (listing.expert.toString() !== currentUserId) {
+    if (listing.expert.toString() !== currentUserId.toString()) {
       throw new UnauthorizedException(
         'You are not authorized to update this listing'
       );
@@ -192,7 +192,8 @@ export const deleteListing = AsyncHandler(
     if (!listing) {
       throw new NotFoundException('Listing not found');
     }
-    if (listing.expert.toString() !== currentUserId) {
+
+    if (listing.expert.toString() !== currentUserId.toString()) {
       throw new UnauthorizedException(
         'You are not authorized to delete this listing'
       );
