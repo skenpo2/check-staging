@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import { server } from './app';
-import connectDb from './configs/dB.config';
+import connectDb, { mongoose } from './configs/dB.config';
 import { config } from './configs/app.config';
 import logger from './utils/logger';
 import { startEventConsumer } from './configs/rabbitmqConsumer';
@@ -56,7 +56,7 @@ async function shutdown() {
 
   try {
     logger.info('Closing MongoDB...');
-    await (await import('mongoose')).connection.close();
+    await mongoose.connection.close();
   } catch (err) {
     logger.error('Error closing MongoDB:', err);
   }
