@@ -6,11 +6,28 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import redis from './redis';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
+import http from 'http';
+import { Server } from 'socket.io';
+import { HTTPSTATUS } from './configs/http.config';
 import routes from './routes';
 import errorHandler from './middlewares/errorHandler.middleware';
 import logger from './utils/logger';
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: ['https://checkslate-project.netlify.app', 'http://localhost:5173'],
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Initialize real-time messaging service
+import { initializeMessageService } from './modules/messages/messages.service';
+initializeMessageService(io);
 
 //PROXY SETUP
 app.set('trust proxy', 1);
@@ -51,7 +68,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     .then(() => next())
     .catch(() => {
       logger.warn(`Rate limit exceeded for IP: ${req.ip}`);
-      res.status(429).json({ success: false, message: 'Too many requests' });
+      res.status(HTTPSTATUS.TOO_MANY_REQUESTS).json({ success: false, message: 'Too many requests' });
     });
 });
 
@@ -61,4 +78,7 @@ app.use('/api', routes);
 // GLOBAL ERROR HANDLER
 app.use(errorHandler);
 
-export default app;
+// SOCKET.IO CONNECTION
+export { io, server };
+
+export default app; // Might no longer be needed if server.listen is used directly in server.ts
