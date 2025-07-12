@@ -6,36 +6,38 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import redis from './redis';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
+import http from 'http';
+import { Server } from 'socket.io';
+import { HTTPSTATUS } from './configs/http.config';
 import routes from './routes';
 import errorHandler from './middlewares/errorHandler.middleware';
 import logger from './utils/logger';
-import client from './configs/postHog.config';
 import { publishEvent } from './configs/rabbitmqPublisher';
 
+// Create Express app
 const app = express();
 
-//PROXY SETUP
+// PROXY SETUP
 app.set('trust proxy', 1);
 
-//USE PASSPORT
+// USE PASSPORT
 app.use(passport.initialize());
 
 // MIDDLEWARES
-
 app.use(
   helmet({
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
-        defaultSrc: ["'none'"], //  Block all content loading
-        scriptSrc: ["'none'"], // Block any script loading
-        styleSrc: ["'none'"], // No CSS needed on an API server
-        imgSrc: ["'none'"], //  No image content allowed
-        connectSrc: ["'self'"], //  Only allow outbound connections to self
-        frameAncestors: ["'none'"], //  Disallow embedding
+        defaultSrc: ["'none'"],
+        scriptSrc: ["'none'"],
+        styleSrc: ["'none'"],
+        imgSrc: ["'none'"],
+        connectSrc: ["'self'"],
+        frameAncestors: ["'none'"],
       },
     },
-    crossOriginEmbedderPolicy: false, // Safe to disable — avoids blocking frontend fetches
+    crossOriginEmbedderPolicy: false,
   })
 );
 
@@ -58,13 +60,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 app.post('/track', async (req: Request, res: Response) => {
   const { event, data } = req.body;
-
   await publishEvent(event, data);
-
-  res.send('hello tracker').status(200);
+  res.status(200).send('Event queued');
 });
 
-//DDOS PROTECTION RATE LIMITING
+// DDOS PROTECTION RATE LIMITING
 const rateLimiter = new RateLimiterRedis({
   storeClient: redis,
   keyPrefix: 'middleware',
@@ -74,11 +74,13 @@ const rateLimiter = new RateLimiterRedis({
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   rateLimiter
-    .consume(req.ip as string)
+    .consume(req.ip)
     .then(() => next())
     .catch(() => {
       logger.warn(`Rate limit exceeded for IP: ${req.ip}`);
-      res.status(429).json({ success: false, message: 'Too many requests' });
+      res
+        .status(HTTPSTATUS.TOO_MANY_REQUESTS)
+        .json({ success: false, message: 'Too many requests' });
     });
 });
 
@@ -88,4 +90,19 @@ app.use('/api', routes);
 // GLOBAL ERROR HANDLER
 app.use(errorHandler);
 
-export default app;
+// Create HTTP server with Socket.IO
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: ['https://checkslate-project.netlify.app', 'http://localhost:5173'],
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
+
+// Initialize your real-time messaging
+import { initializeMessageService } from './modules/messages/messages.service';
+initializeMessageService(io);
+
+export { app, server, io };
