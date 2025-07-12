@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema, Types } from "mongoose";
+import mongoose, { Document, Schema, Types } from 'mongoose';
 
 // TODO: If a Zod schema exists for Message, import it like:
 // import { IMessage as IMessageSchema } from '../schemas/message.schema';
@@ -17,63 +17,67 @@ export interface IMessageDocument extends IMessage, Document {}
 
 const MessageSchema = new Schema<IMessageDocument>(
   {
-    sender: { 
-      type: Schema.Types.ObjectId, 
-      ref: "User", 
+    sender: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: [true, 'Sender is required'],
-      index: true
+      index: true,
     },
-    receiver: { 
-      type: Schema.Types.ObjectId, 
-      ref: "User", 
+    receiver: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: [true, 'Receiver is required'],
-      index: true
+      index: true,
     },
-    content: { 
-      type: String, 
+    content: {
+      type: String,
       required: [true, 'Message content is required'],
       trim: true,
       minlength: [1, 'Message cannot be empty'],
-      maxlength: [2000, 'Message is too long'] 
+      maxlength: [2000, 'Message is too long'],
     },
-    read: { 
-      type: Boolean, 
+    read: {
+      type: Boolean,
       default: false,
-      index: true
+      index: true,
     },
-    booking: { 
-      type: Schema.Types.ObjectId, 
-      ref: "Booking"
+    booking: {
+      type: Schema.Types.ObjectId,
+      ref: 'Booking',
     },
   },
   {
-    timestamps: true, 
-    versionKey: false 
+    timestamps: true,
+    versionKey: false,
   }
 );
 
 // Create indexes for faster queries
-MessageSchema.index({ sender: 1, receiver: 1 }); // Conversation between two users
-MessageSchema.index({ createdAt: -1 }); // Sort by newest first
-MessageSchema.index({ booking: 1 }); // Messages related to a booking
+// MessageSchema.index({ sender: 1, receiver: 1 }); // Conversation between two users
+// MessageSchema.index({ createdAt: -1 }); // Sort by newest first
+// MessageSchema.index({ booking: 1 }); // Messages related to a booking
 
 // Define virtual for conversation
-MessageSchema.virtual('conversation').get(function() {
+MessageSchema.virtual('conversation').get(function () {
   return Message.find({
     $or: [
       { sender: this.sender, receiver: this.receiver },
-      { sender: this.receiver, receiver: this.sender }
-    ]
+      { sender: this.receiver, receiver: this.sender },
+    ],
   }).sort({ createdAt: -1 });
 });
 
 MessageSchema.set('toJSON', {
   virtuals: true,
-  transform: (doc: mongoose.Document, ret: Record<string, any>, options: any) => {
+  transform: (
+    doc: mongoose.Document,
+    ret: Record<string, any>,
+    options: any
+  ) => {
     delete ret.id;
     return ret;
-  }
+  },
 });
 
-const Message = mongoose.model<IMessageDocument>("Message", MessageSchema);
+const Message = mongoose.model<IMessageDocument>('Message', MessageSchema);
 export default Message;

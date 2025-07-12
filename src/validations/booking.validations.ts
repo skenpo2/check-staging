@@ -2,9 +2,9 @@ import z from 'zod';
 
 export const BookingSchema = z.object({
   customer: z.string(),
-  service: z.string(),
-  expert: z.string(),
+  listing: z.string(),
   location: z.string(),
+  note: z.string().optional(),
   scheduledAt: z.date(),
 });
 

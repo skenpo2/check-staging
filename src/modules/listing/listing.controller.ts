@@ -215,17 +215,3 @@ export const deleteListing = AsyncHandler(
     });
   }
 );
-
-//get expert last five listings  for analytic dashboard
-export const getLastFiveListingByExpertId = AsyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.user?._id;
-    const listings = await Listing.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    res.status(HTTPSTATUS.OK).json({
-      latestListings: listings,
-    });
-  }
-);

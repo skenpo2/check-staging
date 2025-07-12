@@ -11,6 +11,7 @@ interface IBookingBase {
   expert: mongoose.Types.ObjectId | IUser;
   status: BookingStatusEnumType;
   location: string;
+  note?: string;
   price: number;
   platformFee: number;
   scheduledAt: Date;
@@ -48,6 +49,16 @@ const BookingSchema = new Schema<IBooking>(
       required: [true, 'Expert is required'],
     },
 
+    review: {
+      type: Schema.Types.ObjectId,
+      ref: 'Review',
+    },
+
+    payment: {
+      type: Schema.Types.ObjectId,
+      ref: 'Payment',
+    },
+
     location: {
       type: String,
       required: true,
@@ -64,6 +75,10 @@ const BookingSchema = new Schema<IBooking>(
       required: [true, 'Price is required'],
       min: [10000, 'Minimum price is ₦10,000'],
       max: [999999, 'Maximum price is ₦999,999'],
+    },
+
+    note: {
+      type: String,
     },
 
     platformFee: {
@@ -95,32 +110,6 @@ BookingSchema.pre('save', function (next) {
   this.platformFee = Math.round(this.price * 0.1);
   next();
 });
-
-//     const validTransitions: Record<string, string[]> = {
-//       PENDING: ['CONFIRMED', 'CANCELED'],
-//       CONFIRMED: ['COMPLETED', 'CANCELED'],
-//       CANCELED: [],
-//       COMPLETED: [],
-//     };
-
-//     if (this.isNew) return next();
-
-//     const oldStatus = this.get('status', null, {
-//       getters: false,
-//       virtuals: false,
-//       defaults: false,
-//       previous: true,
-//     });
-//     if (oldStatus && !validTransitions[oldStatus].includes(this.status)) {
-//       return next(
-//         new Error(
-//           `Invalid status transition from ${oldStatus} to ${this.status}`
-//         )
-//       );
-//     }
-//   }
-//   next();
-// });
 
 // Create and export the Booking model
 const Booking = mongoose.model<IBooking>('Booking', BookingSchema);

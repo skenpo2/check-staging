@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { IUser } from '../user/model/user.model';
 import { google } from 'googleapis';
 
 import AsyncHandler from '../../middlewares/asyncHandler';
 import {
+  allowedForCustomer,
+  allowedForExpert,
   BookingStatusEnum,
   BookingStatusEnumType,
 } from '../../enums/booking-status.enum';
@@ -20,22 +21,40 @@ import {
   validateBookingStatusTransition,
 } from './booking.services';
 import { BookingSchema } from '../../validations/booking.validations';
-import { config } from '../../configs/app.config';
+
 //Google calender setup
-const calendar = google.calendar('v3');
+// const calendar = google.calendar('v3');
 
 export const createBookingController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const body = BookingSchema.parse({ ...req.body });
 
-    const booking = await createBookingService(body);
+    const {
+      customer,
+      listing,
+      expert,
+      note,
+      location,
+      scheduledAt,
+      status,
+      price,
+    } = await createBookingService(body);
 
     // later we will send email notification to the customer and the expert
 
     return res.status(HTTPSTATUS.CREATED).json({
       success: true,
       message: 'Booking Created',
-      booking,
+      booking: {
+        customer,
+        listing,
+        expert,
+        note,
+        location,
+        scheduledAt,
+        status,
+        price,
+      },
     });
   }
 );
@@ -50,18 +69,25 @@ export const getAllBookingController = AsyncHandler(
       typeof user !== 'string' ||
       !mongoose.Types.ObjectId.isValid(user)
     ) {
-      throw new BadRequestException('Invalid or missing user ID');
+      throw new BadRequestException('Invalid user or missing user ID');
     }
 
     // Pagination setup
-    const pageNumber = parseInt(page as string, 10);
-    const pageSize = parseInt(limit as string, 10);
+    const pageNumber = parseInt(page as string, 10) || 1;
+    const pageSize = parseInt(limit as string, 10) || 10;
     const skip = (pageNumber - 1) * pageSize;
 
-    // Build query
-    const query: any = {
-      $or: [{ customer: user }, { expert: user }],
-    };
+    // Determine user role
+    const userRole = req.user?.role;
+
+    // Build query dynamically
+    const query: any = {};
+
+    if (userRole === 'CUSTOMER') {
+      query.customer = user.toString();
+    } else {
+      query.expert = user.toString();
+    }
 
     // Optional status filter
     if (status && typeof status === 'string') {
@@ -72,7 +98,7 @@ export const getAllBookingController = AsyncHandler(
       query.status = status;
     }
 
-    // Sorting: 'desc' or 'asc' on scheduledAt
+    // Sorting
     const sortOrder = sort === 'asc' ? 1 : -1;
 
     const [bookings, total] = await Promise.all([
@@ -98,8 +124,30 @@ export const getAllBookingController = AsyncHandler(
 export const getBookingByIDController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const { bookingId } = req.params;
+    const userRole = req.user?.role;
+    const userId = req.user?._id;
 
-    const booking = await Booking.findById(bookingId)
+    // Validate bookingId
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      throw new BadRequestException('Invalid booking ID');
+    }
+
+    if (!userRole || !userId) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    // Build query
+    const query: any = { _id: bookingId };
+
+    if (userRole === 'CUSTOMER') {
+      query.customer = userId;
+    } else if (userRole === 'EXPERT') {
+      query.expert = userId;
+    } else {
+      throw new UnauthorizedException('Invalid role');
+    }
+
+    const booking = await Booking.findOne(query)
       .populate({
         path: 'expert',
         select: 'name email _id',
@@ -120,30 +168,46 @@ export const getBookingByIDController = AsyncHandler(
   }
 );
 
-export const updateBookingByIdController = AsyncHandler(
+export const updateBookingByCustomerController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const { bookingId } = req.params;
     const { status } = req.body;
-    const currentUserId = req.user?._id;
+    const userRole = req.user?.role;
+    const userId = req.user?._id;
 
-    const booking = await Booking.findById(bookingId)
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      throw new BadRequestException('Invalid booking ID');
+    }
+
+    if (!userRole || !userId) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    // Build query
+    const query: any = { _id: bookingId };
+
+    if (userRole === 'CUSTOMER') {
+      query.customer = userId;
+    } else {
+      throw new UnauthorizedException('Invalid role');
+    }
+
+    if (!allowedForCustomer.includes(status)) {
+      throw new UnauthorizedException('Not allowed to perform this operation');
+    }
+
+    const booking = await Booking.findOne(query)
       .populate({
         path: 'expert',
-        select: 'name email account',
+        select: 'name email _id',
       })
       .populate({
         path: 'customer',
-        select: 'name email',
+        select: 'name email _id',
       });
 
     if (!booking) {
       throw new NotFoundException('Booking does not exist');
-    }
-
-    if (booking.expert.toString() !== currentUserId) {
-      throw new UnauthorizedException(
-        'You are not authorized to update this booking'
-      );
     }
     const currentStatus = booking.status;
 
@@ -153,58 +217,62 @@ export const updateBookingByIdController = AsyncHandler(
     booking.status = status;
     await booking.save();
 
-    //Add the booking to the expert calender
-    // if (status === 'CONFIRMED') {
-    //   const expert = booking.expert as IUser;
-    //   const customer = booking.customer as IUser;
+    return res.status(HTTPSTATUS.OK).json({
+      success: true,
+      message: 'Booking updated successfully',
+      booking,
+    });
+  }
+);
 
-    //   const accessToken = expert.account.googleAccessToken;
-    //   const refreshToken = expert.account.googleRefreshToken;
+export const updateBookingByExpertController = AsyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { bookingId } = req.params;
+    const { status } = req.body;
+    const userRole = req.user?.role;
+    const userId = req.user?._id;
 
-    //   const oauth2Client = new google.auth.OAuth2(
-    //     config.GOOGLE_CLIENT_ID,
-    //     config.GOOGLE_CLIENT_SECRET,
-    //     config.GOOGLE_CALLBACK_URL
-    //   );
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      throw new BadRequestException('Invalid booking ID');
+    }
 
-    //   oauth2Client.setCredentials({
-    //     access_token: accessToken,
-    //     refresh_token: refreshToken,
-    //   });
+    if (!userRole || !userId) {
+      throw new UnauthorizedException('Unauthorized');
+    }
 
-    //   const event = {
-    //     summary: `Service Booking: ${booking.service}`,
-    //     description: `Appointment between ${expert.name} and ${customer.name}`,
-    //     start: {
-    //       dateTime: booking.scheduledAt.toISOString(),
-    //       timeZone: 'Africa/Lagos',
-    //     },
-    //     end: {
-    //       dateTime: new Date(
-    //         booking.scheduledAt.getTime() + 300 * 60 * 1000
-    //       ).toISOString(),
-    //       timeZone: 'Africa/Lagos',
-    //     },
-    //     attendees: [{ email: expert.email }, { email: customer.email }],
-    //     reminders: {
-    //       useDefault: false,
-    //       overrides: [
-    //         { method: 'email', minutes: 30 },
-    //         { method: 'popup', minutes: 10 },
-    //       ],
-    //     },
-    //   };
+    // Build query
+    const query: any = { _id: bookingId };
 
-    //   const { data } = await calendar.events.insert({
-    //     calendarId: 'primary',
-    //     auth: oauth2Client,
-    //     requestBody: event,
-    //     sendUpdates: 'all', // Sends email to all attendees
-    //   });
+    if (userRole === 'EXPERT') {
+      query.expert = userId;
+    } else {
+      throw new UnauthorizedException('Invalid role');
+    }
 
-    //   booking.calendarEventId = data.id as string;
-    //   await booking.save();
-    // }
+    if (!allowedForExpert.includes(status)) {
+      throw new UnauthorizedException('Not allowed to perform this operation');
+    }
+
+    const booking = await Booking.findOne(query)
+      .populate({
+        path: 'expert',
+        select: 'name email _id',
+      })
+      .populate({
+        path: 'customer',
+        select: 'name email _id',
+      });
+
+    if (!booking) {
+      throw new NotFoundException('Booking does not exist');
+    }
+    const currentStatus = booking.status;
+
+    // Validate status transition
+    validateBookingStatusTransition(currentStatus, status);
+
+    booking.status = status;
+    await booking.save();
 
     return res.status(HTTPSTATUS.OK).json({
       success: true,
@@ -243,3 +311,56 @@ export const deleteBookingByIdController = AsyncHandler(
       .json({ success: true, message: 'Booking deleted successfully' });
   }
 );
+
+//Add the booking to the expert calender
+// if (status === 'CONFIRMED') {
+//   const expert = booking.expert as IUser;
+//   const customer = booking.customer as IUser;
+
+//   const accessToken = expert.account.googleAccessToken;
+//   const refreshToken = expert.account.googleRefreshToken;
+
+//   const oauth2Client = new google.auth.OAuth2(
+//     config.GOOGLE_CLIENT_ID,
+//     config.GOOGLE_CLIENT_SECRET,
+//     config.GOOGLE_CALLBACK_URL
+//   );
+
+//   oauth2Client.setCredentials({
+//     access_token: accessToken,
+//     refresh_token: refreshToken,
+//   });
+
+//   const event = {
+//     summary: `Service Booking: ${booking.service}`,
+//     description: `Appointment between ${expert.name} and ${customer.name}`,
+//     start: {
+//       dateTime: booking.scheduledAt.toISOString(),
+//       timeZone: 'Africa/Lagos',
+//     },
+//     end: {
+//       dateTime: new Date(
+//         booking.scheduledAt.getTime() + 300 * 60 * 1000
+//       ).toISOString(),
+//       timeZone: 'Africa/Lagos',
+//     },
+//     attendees: [{ email: expert.email }, { email: customer.email }],
+//     reminders: {
+//       useDefault: false,
+//       overrides: [
+//         { method: 'email', minutes: 30 },
+//         { method: 'popup', minutes: 10 },
+//       ],
+//     },
+//   };
+
+//   const { data } = await calendar.events.insert({
+//     calendarId: 'primary',
+//     auth: oauth2Client,
+//     requestBody: event,
+//     sendUpdates: 'all', // Sends email to all attendees
+//   });
+
+//   booking.calendarEventId = data.id as string;
+//   await booking.save();
+// }

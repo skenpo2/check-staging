@@ -9,7 +9,7 @@ export const getDashboardWithAggregation = async (
   res: Response
 ) => {
   try {
-    const userId = new mongoose.Types.ObjectId((req as any).user._id);
+    const userId = req.user?._id;
 
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
@@ -21,7 +21,7 @@ export const getDashboardWithAggregation = async (
 
     // Booking Aggregation Pipeline
     const bookingStats = await Booking.aggregate([
-      { $match: { user: userId } },
+      { $match: { expert: userId } },
       {
         $facet: {
           totalBookingsThisWeek: [
@@ -35,8 +35,8 @@ export const getDashboardWithAggregation = async (
           totalEarnings: [
             {
               $match: {
-                status: 'confirmed',
-                paymentStatus: 'paid',
+                status: 'CONFIRMED',
+                paymentStatus: 'PAID',
               },
             },
             {
@@ -65,7 +65,7 @@ export const getDashboardWithAggregation = async (
     ]);
 
     const ratingAgg = await Review.aggregate([
-      { $match: { user: userId } },
+      { $match: { expert: userId } },
       { $group: { _id: null, avgRating: { $avg: '$rating' } } },
     ]);
 

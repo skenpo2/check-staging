@@ -1,9 +1,11 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 
 import mongoose from 'mongoose';
 import Booking from '../booking/model/booking.model';
 import Listing from '../listing/model/listing.model';
 import Review from '../review/model/review.model';
+import AsyncHandler from '../../middlewares/asyncHandler';
+import { HTTPSTATUS } from '../../configs/http.config';
 
 export const getUserDashboardAnalytics = async (
   req: Request,
@@ -83,3 +85,17 @@ export const getUserDashboardAnalytics = async (
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+//get expert last five listings  for analytic dashboard
+export const getLastFiveListingByExpertId = AsyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user?._id;
+    const listings = await Listing.find({ expert: userId })
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    return res.status(HTTPSTATUS.OK).json({
+      latestListings: listings,
+    });
+  }
+);

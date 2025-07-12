@@ -3,24 +3,44 @@ import {
   createBookingController,
   getAllBookingController,
   getBookingByIDController,
-  updateBookingByIdController,
+  updateBookingByCustomerController,
+  updateBookingByExpertController,
 } from './booking.controllers';
 import { roleGuard } from '../../middlewares/roleGuard';
 import { Permissions } from '../../enums/user-role.enum';
+import passport from '../../configs/passport.config';
 
 const router = express.Router();
 
-router.get('/', roleGuard(Permissions.VIEW_BOOKINGS), getAllBookingController);
+router.get(
+  '/',
+  passport.authenticate('jwt', { session: false }),
+  roleGuard(Permissions.VIEW_BOOKINGS),
+  getAllBookingController
+);
 router.get(
   '/:id',
+  passport.authenticate('jwt', { session: false }),
   roleGuard(Permissions.VIEW_BOOKINGS),
   getBookingByIDController
 );
-router.post('/', roleGuard(Permissions.BOOK_SERVICE), createBookingController);
+router.post(
+  '/',
+  passport.authenticate('jwt', { session: false }),
+  roleGuard(Permissions.BOOK_SERVICE),
+  createBookingController
+);
 router.put(
-  '/id',
+  '/id/expert',
+  passport.authenticate('jwt', { session: false }),
   roleGuard([Permissions.ACCEPT_BOOKING, Permissions.REJECT_BOOKING]),
-  updateBookingByIdController
+  updateBookingByExpertController
+);
+router.put(
+  '/id/customer',
+  passport.authenticate('jwt', { session: false }),
+  roleGuard([Permissions.BOOK_SERVICE]),
+  updateBookingByCustomerController
 );
 
 export default router;

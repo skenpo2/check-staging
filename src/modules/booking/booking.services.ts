@@ -10,13 +10,12 @@ import Listing from '../listing/model/listing.model';
 
 export const createBookingService = async (body: IBooking) => {
   try {
-    const { customer, service, expert, location, scheduledAt } = body;
+    const { customer, listing, note, location, scheduledAt } = body;
 
     // Validate ObjectIds
     if (
       !mongoose.Types.ObjectId.isValid(customer) ||
-      !mongoose.Types.ObjectId.isValid(service) ||
-      !mongoose.Types.ObjectId.isValid(expert)
+      !mongoose.Types.ObjectId.isValid(listing)
     ) {
       throw new BadRequestException('Invalid ObjectId(s)');
     }
@@ -29,18 +28,19 @@ export const createBookingService = async (body: IBooking) => {
       );
     }
 
-    const isExistingService = await Listing.findById(service);
+    const isExistingService = await Listing.findById(listing);
 
     if (!isExistingService) {
-      throw new NotFoundException('Service does not exist');
+      throw new NotFoundException('Listing does not exist');
     }
 
     const newBooking = await Booking.create({
-      customer,
-      service,
-      expert,
-      location,
-      scheduledAt,
+      customer: customer,
+      listing: listing,
+      expert: isExistingService.expert,
+      note: note,
+      location: location,
+      scheduledAt: scheduledAt,
       status: BookingStatusEnum.PENDING,
       price: isExistingService.price,
     });
@@ -60,7 +60,9 @@ export function validateBookingStatusTransition(
     BookingStatusEnumType[]
   > = {
     PENDING: ['CONFIRMED', 'CANCELLED'],
-    CONFIRMED: ['COMPLETED'],
+    CONFIRMED: ['PAID'],
+    PAID: ['DONE'],
+    DONE: ['COMPLETED'],
     COMPLETED: [],
     CANCELLED: [],
   };
