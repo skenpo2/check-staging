@@ -74,7 +74,7 @@ const rateLimiter = new RateLimiterRedis({
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   rateLimiter
-    .consume(req.ip)
+    .consume(req.ip as string)
     .then(() => next())
     .catch(() => {
       logger.warn(`Rate limit exceeded for IP: ${req.ip}`);
