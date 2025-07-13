@@ -15,54 +15,92 @@ export const getMonthlyPaymentSummary = async (req: Request, res: Response) => {
         $match: {
           user: userId,
           createdAt: { $gte: startOfYear, $lt: endOfYear },
+          payment: { $exists: true, $ne: null },
         },
       },
       {
         $addFields: {
           month: { $month: '$createdAt' },
-          isComplete: {
-            $and: [
-              { $eq: ['$paymentStatus', 'paid'] },
-              { $eq: ['$status', 'confirmed'] },
-            ],
-          },
-        },
-      },
-      {
-        $group: {
-          _id: { month: '$month', complete: '$isComplete' },
-          total: { $sum: '$price' },
-        },
-      },
-      {
-        $group: {
-          _id: '$_id.month',
-          complete: {
-            $sum: {
-              $cond: [{ $eq: ['$_id.complete', true] }, '$total', 0],
-            },
-          },
-          pending: {
-            $sum: {
-              $cond: [{ $eq: ['$_id.complete', false] }, '$total', 0],
-            },
-          },
+          netPrice: { $subtract: ['$price', '$platformFee'] },
         },
       },
       {
         $project: {
-          month: '$_id',
-          complete: 1,
-          pending: 1,
-          _id: 0,
+          month: 1,
+          price: 1,
+          netPrice: 1,
+          isCompleted: { $eq: ['$status', 'COMPLETED'] },
+          // Any booking with payment AND not completed is pending
+          isPending: { $ne: ['$status', 'COMPLETED'] },
         },
       },
       {
-        $sort: { month: 1 },
+        $facet: {
+          completed: [
+            { $match: { isCompleted: true } },
+            {
+              $group: {
+                _id: '$month',
+                total: { $sum: '$netPrice' },
+              },
+            },
+          ],
+          pending: [
+            { $match: { isPending: true } },
+            {
+              $group: {
+                _id: '$month',
+                total: { $sum: '$price' }, // or netPrice if you prefer
+              },
+            },
+          ],
+        },
       },
+      {
+        $project: {
+          merged: {
+            $setUnion: ['$completed', '$pending'],
+          },
+          completed: 1,
+          pending: 1,
+        },
+      },
+      { $unwind: '$merged' },
+      {
+        $project: {
+          month: '$merged._id',
+          complete: {
+            $reduce: {
+              input: '$completed',
+              initialValue: 0,
+              in: {
+                $cond: [
+                  { $eq: ['$$this._id', '$merged._id'] },
+                  '$$this.total',
+                  '$$value',
+                ],
+              },
+            },
+          },
+          pending: {
+            $reduce: {
+              input: '$pending',
+              initialValue: 0,
+              in: {
+                $cond: [
+                  { $eq: ['$$this._id', '$merged._id'] },
+                  '$$this.total',
+                  '$$value',
+                ],
+              },
+            },
+          },
+        },
+      },
+      { $sort: { month: 1 } },
     ]);
 
-    // Fill in missing months (1–12)
+    // Fill in months 1–12
     const final = Array.from({ length: 12 }, (_, i) => {
       const monthData = summary.find((s) => s.month === i + 1);
       return {
