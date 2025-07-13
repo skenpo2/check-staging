@@ -4,6 +4,10 @@ import Booking from '../booking/model/booking.model';
 import Listing from '../listing/model/listing.model';
 import AsyncHandler from '../../middlewares/asyncHandler';
 import { HTTPSTATUS } from '../../configs/http.config';
+import {
+  ListingAvailabilityEnum,
+  ListingStatusEnum,
+} from '../../enums/listing-enum';
 
 export const getLastFourBookingByExpertId = async (
   req: Request,
@@ -92,7 +96,12 @@ export const getLastFourBookingByExpertId = async (
 export const getLastFiveListingByExpertId = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user?._id;
-    const listings = await Listing.find({ expert: userId })
+    const listings = await Listing.find({
+      expert: userId,
+      availability: ListingAvailabilityEnum.AVAILABLE,
+      status: ListingStatusEnum.PUBLISHED,
+    })
+      .select('_id title price')
       .sort({ createdAt: -1 })
       .limit(5);
 
