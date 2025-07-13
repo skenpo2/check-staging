@@ -39,14 +39,13 @@ export const roleGuard = (
         throw new UnauthorizedException(
           'Access denied. Missing one or more required permissions'
         );
+        next(Error);
       }
 
       next();
     } catch (error) {
       logger.error(error);
-      throw new InternalServerException(
-        'Internal server error while checking permissions.'
-      );
+      next(error);
     }
   };
 };

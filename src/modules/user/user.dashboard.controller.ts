@@ -1,88 +1,90 @@
 import { Request, Response, NextFunction } from 'express';
 
-import mongoose from 'mongoose';
 import Booking from '../booking/model/booking.model';
 import Listing from '../listing/model/listing.model';
-import Review from '../review/model/review.model';
 import AsyncHandler from '../../middlewares/asyncHandler';
 import { HTTPSTATUS } from '../../configs/http.config';
 
-export const getUserDashboardAnalytics = async (
+export const getLastFourBookingByExpertId = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const userId = new mongoose.Types.ObjectId((req as any).user._id);
+    const userId = req.user?._id.toString();
 
-    // This week range
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
+    const [pending, paid, done, cancelled] = await Promise.all([
+      Booking.find({ expert: userId, status: 'PENDING' })
+        .select('scheduledAt status')
+        .sort({ createdAt: -1 })
+        .limit(4)
+        .populate([
+          {
+            path: 'customer',
+            select: 'name _id',
+          },
+          {
+            path: 'listing',
+            select: 'title _id',
+          },
+        ]),
 
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 7);
-    endOfWeek.setHours(23, 59, 59, 999);
+      Booking.find({ expert: userId, status: 'PAID' })
+        .select('scheduledAt status')
+        .sort({ createdAt: -1 })
+        .limit(4)
+        .populate([
+          {
+            path: 'customer',
+            select: 'name _id',
+          },
+          {
+            path: 'listing',
+            select: 'title _id',
+          },
+        ]),
 
-    // Fetch bookings for earnings calculation
-    const [
-      confirmedPaidBookings,
-      avgRatingAgg,
-      upcomingBooking,
-      latestListings,
-      pending,
-      completed,
-      declined,
-    ] = await Promise.all([
-      Booking.find({
-        user: userId,
-        status: 'confirmed',
-        paymentStatus: 'paid',
-      }),
-      Review.aggregate([
-        { $match: { user: userId } },
-        { $group: { _id: null, avgRating: { $avg: '$rating' } } },
-      ]),
-      Booking.findOne({ user: userId, date: { $gte: new Date() } }).sort({
-        date: 1,
-      }),
-      Listing.find({ user: userId }).sort({ createdAt: -1 }).limit(4),
-      Booking.find({ user: userId, status: 'pending' })
+      Booking.find({ expert: userId, status: 'DONE' })
+        .select('scheduledAt status')
         .sort({ createdAt: -1 })
-        .limit(2),
-      Booking.find({ user: userId, status: 'completed' })
+        .limit(4)
+        .populate([
+          {
+            path: 'customer',
+            select: 'name _id',
+          },
+          {
+            path: 'listing',
+            select: 'title _id',
+          },
+        ]),
+
+      Booking.find({ expert: userId, status: 'CANCELLED' })
+        .select('scheduledAt status')
         .sort({ createdAt: -1 })
-        .limit(2),
-      Booking.find({ user: userId, status: 'declined' })
-        .sort({ createdAt: -1 })
-        .limit(2),
+        .limit(4)
+        .populate([
+          {
+            path: 'customer',
+            select: 'name _id',
+          },
+          {
+            path: 'listing',
+            select: 'title _id',
+          },
+        ]),
     ]);
 
-    const totalEarnings = confirmedPaidBookings.reduce((sum, booking) => {
-      const price = booking.price || 0;
-      const fee = booking.platformFee || 0;
-      return sum + (price - fee);
-    }, 0);
-
-    const totalBookingsThisWeek = await Booking.countDocuments({
-      user: userId,
-      createdAt: { $gte: startOfWeek, $lte: endOfWeek },
-    });
-
-    const averageRating = avgRatingAgg[0]?.avgRating || 0;
-
-    res.status(200).json({
-      totalBookingsThisWeek,
-      totalEarnings,
-      averageRating,
-      latestUpcomingBooking: upcomingBooking,
-      latestListings,
+    res.status(HTTPSTATUS.OK).json({
       pendingBookings: pending,
-      completedBookings: completed,
-      declinedBookings: declined,
+      paidBookings: paid,
+      completedBookings: done,
+      declinedBookings: cancelled,
     });
   } catch (error) {
     console.error('Dashboard error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res
+      .status(HTTPSTATUS.INTERNAL_SERVER_ERROR)
+      .json({ message: 'Internal server error' });
   }
 };
 

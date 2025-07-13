@@ -8,7 +8,7 @@ export const BookingStatusEnum = {
 } as const;
 
 export const allowedForCustomer = ['CANCELLED', 'COMPLETED'];
-export const allowedForExpert = ['CONFIRMED', 'DONE'];
+export const allowedForExpert = ['CANCELLED', 'CONFIRMED', 'DONE'];
 
 export type BookingStatusEnumType =
   (typeof BookingStatusEnum)[keyof typeof BookingStatusEnum];

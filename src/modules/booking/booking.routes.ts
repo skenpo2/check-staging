@@ -31,13 +31,13 @@ router.post(
   createBookingController
 );
 router.put(
-  '/id/expert',
+  '/:id/expert',
   passport.authenticate('jwt', { session: false }),
   roleGuard([Permissions.ACCEPT_BOOKING, Permissions.REJECT_BOOKING]),
   updateBookingByExpertController
 );
 router.put(
-  '/id/customer',
+  '/:id/customer',
   passport.authenticate('jwt', { session: false }),
   roleGuard([Permissions.BOOK_SERVICE]),
   updateBookingByCustomerController

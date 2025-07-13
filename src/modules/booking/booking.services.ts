@@ -7,6 +7,10 @@ import Booking from './model/booking.model';
 import { BadRequestException, NotFoundException } from '../../utils/appError';
 import { IBooking } from '../../validations/booking.validations';
 import Listing from '../listing/model/listing.model';
+import {
+  ListingAvailabilityEnum,
+  ListingStatusEnum,
+} from '../../enums/listing-enum';
 
 export const createBookingService = async (body: IBooking) => {
   try {
@@ -14,7 +18,7 @@ export const createBookingService = async (body: IBooking) => {
 
     // Validate ObjectIds
     if (
-      !mongoose.Types.ObjectId.isValid(customer) ||
+      !mongoose.Types.ObjectId.isValid(customer as string) ||
       !mongoose.Types.ObjectId.isValid(listing)
     ) {
       throw new BadRequestException('Invalid ObjectId(s)');
@@ -27,8 +31,14 @@ export const createBookingService = async (body: IBooking) => {
         'Scheduled date must be a valid future date'
       );
     }
+    // Build query
+    const query: any = {
+      _id: listing,
+      status: ListingStatusEnum.PUBLISHED,
+      availability: ListingAvailabilityEnum.AVAILABLE,
+    };
 
-    const isExistingService = await Listing.findById(listing);
+    const isExistingService = await Listing.findOne(query);
 
     if (!isExistingService) {
       throw new NotFoundException('Listing does not exist');
@@ -64,7 +74,7 @@ export function validateBookingStatusTransition(
     PAID: ['DONE'],
     DONE: ['COMPLETED'],
     COMPLETED: [],
-    CANCELLED: [],
+    CANCELLED: ['CONFIRMED'],
   };
 
   const allowed = validTransitions[currentStatus];

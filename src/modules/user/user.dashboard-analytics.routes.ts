@@ -3,7 +3,10 @@ import { getDashboardWithAggregation } from './user.dashboard-aggregate.controll
 import { roleGuard } from '../../middlewares/roleGuard';
 import { Permissions } from '../../enums/user-role.enum';
 import passport from '../../configs/passport.config';
-import { getLastFiveListingByExpertId } from './user.dashboard.controller';
+import {
+  getLastFiveListingByExpertId,
+  getLastFourBookingByExpertId,
+} from './user.dashboard.controller';
 
 const router = express.Router();
 
@@ -19,6 +22,13 @@ router.get(
   passport.authenticate('jwt', { session: false }),
   roleGuard(Permissions.CREATE_LISTING),
   getLastFiveListingByExpertId
+);
+
+router.get(
+  '/booking',
+  passport.authenticate('jwt', { session: false }),
+  roleGuard(Permissions.CREATE_LISTING),
+  getLastFourBookingByExpertId
 );
 
 export default router;

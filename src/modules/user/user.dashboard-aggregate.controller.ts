@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 
-import mongoose from 'mongoose';
 import Booking from '../booking/model/booking.model';
 import Review from '../review/model/review.model';
 
@@ -35,8 +34,7 @@ export const getDashboardWithAggregation = async (
           totalEarnings: [
             {
               $match: {
-                status: 'CONFIRMED',
-                paymentStatus: 'PAID',
+                status: 'COMPLETED',
               },
             },
             {
@@ -54,7 +52,8 @@ export const getDashboardWithAggregation = async (
           upcoming: [
             {
               $match: {
-                date: { $gte: new Date() },
+                status: 'PAID',
+                scheduledAt: { $gte: new Date() },
               },
             },
             { $sort: { date: 1 } },
@@ -75,7 +74,7 @@ export const getDashboardWithAggregation = async (
       totalBookingsThisWeek: result.totalBookingsThisWeek[0]?.count || 0,
       totalEarnings: result.totalEarnings[0]?.total || 0,
       averageRating: ratingAgg[0]?.avgRating || 0,
-      latestUpcomingBooking: result.upcoming[0] || null,
+      latestUpcomingBooking: result.upcoming[0].scheduledAt || null,
     });
   } catch (err) {
     console.error(err);

@@ -38,7 +38,7 @@ export const createBookingController = AsyncHandler(
       scheduledAt,
       status,
       price,
-    } = await createBookingService(body);
+    } = await createBookingService({ ...body, customer: req.user?._id });
 
     // later we will send email notification to the customer and the expert
 
@@ -103,7 +103,23 @@ export const getAllBookingController = AsyncHandler(
 
     const [bookings, total] = await Promise.all([
       Booking.find(query)
-        .populate('customer expert service')
+        .populate([
+          {
+            //select only name and id
+            path: 'customer',
+            select: 'name _id',
+          },
+          {
+            path: 'expert',
+            // select only name and id
+            select: 'name _id',
+          },
+          {
+            path: 'listing',
+            //select only title and _id
+            select: 'title _id',
+          },
+        ])
         .sort({ scheduledAt: sortOrder })
         .skip(skip)
         .limit(pageSize),
@@ -123,14 +139,16 @@ export const getAllBookingController = AsyncHandler(
 
 export const getBookingByIDController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { bookingId } = req.params;
+    const bookingId = req.params.id;
     const userRole = req.user?.role;
     const userId = req.user?._id;
 
     // Validate bookingId
-    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    if (!bookingId || typeof bookingId !== 'string') {
       throw new BadRequestException('Invalid booking ID');
     }
+
+    console.log(bookingId);
 
     if (!userRole || !userId) {
       throw new UnauthorizedException('Unauthorized');
@@ -152,10 +170,23 @@ export const getBookingByIDController = AsyncHandler(
         path: 'expert',
         select: 'name email _id',
       })
-      .populate({
-        path: 'customer',
-        select: 'name email _id',
-      });
+      .populate([
+        {
+          //select only name and id
+          path: 'customer',
+          select: 'name _id',
+        },
+        {
+          path: 'expert',
+          // select only name and id
+          select: 'name _id',
+        },
+        {
+          path: 'listing',
+          //select only title and _id
+          select: 'title _id',
+        },
+      ]);
 
     if (!booking) {
       throw new NotFoundException('Booking does not exist');
@@ -170,8 +201,8 @@ export const getBookingByIDController = AsyncHandler(
 
 export const updateBookingByCustomerController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { bookingId } = req.params;
-    const { status } = req.body;
+    const bookingId = req.params.id;
+    const status = req.body.status;
     const userRole = req.user?.role;
     const userId = req.user?._id;
 
@@ -192,19 +223,27 @@ export const updateBookingByCustomerController = AsyncHandler(
       throw new UnauthorizedException('Invalid role');
     }
 
-    if (!allowedForCustomer.includes(status)) {
+    if (!status || !allowedForCustomer.includes(status)) {
       throw new UnauthorizedException('Not allowed to perform this operation');
     }
 
-    const booking = await Booking.findOne(query)
-      .populate({
-        path: 'expert',
-        select: 'name email _id',
-      })
-      .populate({
+    const booking = await Booking.findOne(query).populate([
+      {
+        //select only name and id
         path: 'customer',
-        select: 'name email _id',
-      });
+        select: 'name _id',
+      },
+      {
+        path: 'expert',
+        // select only name and id
+        select: 'name _id',
+      },
+      {
+        path: 'listing',
+        //select only title and _id
+        select: 'title _id',
+      },
+    ]);
 
     if (!booking) {
       throw new NotFoundException('Booking does not exist');
@@ -227,8 +266,8 @@ export const updateBookingByCustomerController = AsyncHandler(
 
 export const updateBookingByExpertController = AsyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { bookingId } = req.params;
-    const { status } = req.body;
+    const bookingId = req.params.id;
+    const status = req.body?.status;
     const userRole = req.user?.role;
     const userId = req.user?._id;
 
@@ -249,19 +288,27 @@ export const updateBookingByExpertController = AsyncHandler(
       throw new UnauthorizedException('Invalid role');
     }
 
-    if (!allowedForExpert.includes(status)) {
+    if (!status || !allowedForExpert.includes(status)) {
       throw new UnauthorizedException('Not allowed to perform this operation');
     }
 
-    const booking = await Booking.findOne(query)
-      .populate({
-        path: 'expert',
-        select: 'name email _id',
-      })
-      .populate({
+    const booking = await Booking.findOne(query).populate([
+      {
+        //select only name and id
         path: 'customer',
-        select: 'name email _id',
-      });
+        select: 'name _id',
+      },
+      {
+        path: 'expert',
+        // select only name and id
+        select: 'name _id',
+      },
+      {
+        path: 'listing',
+        //select only title and _id
+        select: 'title _id',
+      },
+    ]);
 
     if (!booking) {
       throw new NotFoundException('Booking does not exist');
