@@ -120,7 +120,7 @@ export const getLastFourReviewsByExpertId = AsyncHandler(
     })
       .select('_id rating price')
       .sort({ createdAt: -1 })
-      .limit(5)
+      .limit(4)
       .select('rating review _id')
       .populate({
         path: 'customer',
