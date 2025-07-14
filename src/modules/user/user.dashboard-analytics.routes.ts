@@ -6,6 +6,7 @@ import passport from '../../configs/passport.config';
 import {
   getLastFiveListingByExpertId,
   getLastFourBookingByExpertId,
+  getLastFourReviewsByExpertId,
 } from './user.dashboard.controller';
 import { getMonthlyPaymentSummary } from './user.payment-graph.controllers';
 
@@ -37,6 +38,12 @@ router.get(
   passport.authenticate('jwt', { session: false }),
   roleGuard(Permissions.CREATE_LISTING),
   getMonthlyPaymentSummary
+);
+
+router.get(
+  '/review',
+  passport.authenticate('jwt', { session: false }),
+  getLastFourReviewsByExpertId
 );
 
 export default router;

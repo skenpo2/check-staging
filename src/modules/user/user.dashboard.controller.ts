@@ -8,6 +8,7 @@ import {
   ListingAvailabilityEnum,
   ListingStatusEnum,
 } from '../../enums/listing-enum';
+import Review from '../review/model/review.model';
 
 export const getLastFourBookingByExpertId = async (
   req: Request,
@@ -107,6 +108,28 @@ export const getLastFiveListingByExpertId = AsyncHandler(
 
     return res.status(HTTPSTATUS.OK).json({
       latestListings: listings,
+    });
+  }
+);
+
+export const getLastFourReviewsByExpertId = AsyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user?._id;
+    const reviews = await Review.find({
+      expert: userId,
+    })
+      .select('_id rating price')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('rating review _id')
+      .populate({
+        path: 'customer',
+        select: 'name email _id',
+      });
+
+    return res.status(HTTPSTATUS.OK).json({
+      success: true,
+      latestReviews: reviews,
     });
   }
 );
