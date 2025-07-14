@@ -6,10 +6,10 @@ import mongoose, { Document, Schema } from 'mongoose';
 interface IReviewBase {
   customer: mongoose.Types.ObjectId;
   expert: mongoose.Types.ObjectId;
-  service: mongoose.Types.ObjectId;
+  listing: mongoose.Types.ObjectId;
   booking: mongoose.Types.ObjectId;
   rating: number;
-  review?: string;
+  review: string;
 }
 
 export interface IReview extends IReviewBase {
@@ -40,10 +40,10 @@ const ReviewSchema = new Schema<IReviewDocument>(
       required: [true, 'Expert is required'],
       index: true,
     },
-    service: {
+    listing: {
       type: Schema.Types.ObjectId,
-      ref: 'Service',
-      required: [true, 'Service is required'],
+      ref: 'Listing',
+      required: [true, 'Listing is required'],
       index: true,
     },
     booking: {

@@ -1,16 +1,16 @@
 import { Request, Response } from 'express';
 import asyncHandler from '../../../middlewares/asyncHandler';
 import reviewService from '../service/review.service';
-import { ReviewSchema } from '../../user/schemas/review.schemas';
+import { GetAllExpertReviewsQuerySchema } from '../../user/schemas/review.schemas';
 import { createReviewSchema } from '../../../validations/review.validations';
 
 import { HTTPSTATUS } from '../../../configs/http.config';
 import {
+  BadRequestException,
   NotFoundException,
-  UnauthorizedException,
 } from '../../../utils/appError';
 import Review from '../model/review.model';
-import User from '../../user/model/user.model';
+import mongoose from 'mongoose';
 
 export const createReview = asyncHandler(
   async (req: Request, res: Response) => {
@@ -26,34 +26,62 @@ export const createReview = asyncHandler(
 
 export const getReviewById = asyncHandler(
   async (req: Request, res: Response) => {
-    const { reviewId } = req.params;
-    const review = await Review.findById(reviewId);
+    const reviewId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(reviewId)) {
+      throw new BadRequestException('Invalid Review ID');
+    }
+
+    const review = await Review.findById(reviewId).populate({
+      path: 'customer',
+      select: 'name email _id',
+    });
 
     if (!review) throw new NotFoundException('Review not found');
 
-    res.status(HTTPSTATUS.OK).json({ success: true, data: review });
+    return res.status(HTTPSTATUS.OK).json({ success: true, review });
   }
 );
 
 export const getAllReviews = asyncHandler(
   async (req: Request, res: Response) => {
-    const { expert } = req.query;
+    const parsedQuery = GetAllExpertReviewsQuerySchema.parse({ ...req.query });
+    const { page = '1', limit = '10', sort = 'desc', expert } = parsedQuery;
 
-    const filters: any = {};
-    if (expert) {
-      const expertExists = await User.findById(expert);
-      if (!expertExists) {
-        throw new NotFoundException('Expert not found');
-      }
-      filters.expert = expert;
+    const pageNumber = parseInt(page, 10);
+    const pageSize = parseInt(limit, 10);
+    const skip = (pageNumber - 1) * pageSize;
+
+    const query: any = {};
+
+    if (!mongoose.Types.ObjectId.isValid(expert)) {
+      throw new BadRequestException('Invalid expert ID');
     }
+    query.expert = expert;
+    const sortOrder = sort === 'asc' ? 1 : -1;
 
-    const reviews = await Review.find(filters).sort({ createdAt: -1 });
+    const [reviews, total] = await Promise.all([
+      Review.find(query)
+        .sort({
+          createdAt: sortOrder,
+          _id: sortOrder,
+        })
+        .skip(skip)
+        .limit(pageSize)
+        .select('rating review _id')
+        .populate({
+          path: 'customer',
+          select: 'name email _id',
+        }),
+      Review.countDocuments(query),
+    ]);
 
-    res.status(HTTPSTATUS.OK).json({
+    return res.status(HTTPSTATUS.OK).json({
       success: true,
-      count: reviews.length,
-      data: reviews,
+      reviews,
+      total,
+      page: pageNumber,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
     });
   }
 );

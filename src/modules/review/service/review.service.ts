@@ -8,7 +8,6 @@ import {
   IReview,
   IReview as IReviewSchema,
 } from '../../user/schemas/review.schemas';
-import User from '../../user/model/user.model';
 
 const createReview = async (data: IReview) => {
   const booking = await Booking.findById(data.bookingId);
@@ -22,30 +21,21 @@ const createReview = async (data: IReview) => {
     throw new BadRequestException('Review already submitted for this booking');
   }
 
-  const review = await Review.create({
+  const review = new Review({
     customer: data.customerId,
     expert: data.expertId,
-    service: data.serviceId,
+    service: data.listingId,
     booking: data.bookingId,
     rating: data.rating,
     review: data.review,
   });
 
+  await review.save();
   return review;
-};
-
-const getReviewsByExpert = async (expertId: string) => {
-  return await Review.find({ expert: expertId }).sort({ createdAt: -1 });
-};
-
-const getReviewsByCustomer = async (customerId: string) => {
-  return await Review.find({ customer: customerId }).sort({ createdAt: -1 });
 };
 
 const reviewService = {
   createReview,
-  getReviewsByExpert,
-  getReviewsByCustomer,
 };
 
 export default reviewService;

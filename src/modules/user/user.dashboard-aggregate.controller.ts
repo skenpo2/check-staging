@@ -74,7 +74,7 @@ export const getDashboardWithAggregation = async (
       totalBookingsThisWeek: result.totalBookingsThisWeek[0]?.count || 0,
       totalEarnings: result.totalEarnings[0]?.total || 0,
       averageRating: ratingAgg[0]?.avgRating || 0,
-      latestUpcomingBooking: result.upcoming[0].scheduledAt || null,
+      latestUpcomingBooking: result.upcoming[0]?.scheduledAt || null,
     });
   } catch (err) {
     console.error(err);
