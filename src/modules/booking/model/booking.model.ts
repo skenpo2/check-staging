@@ -89,8 +89,12 @@ const BookingSchema = new Schema<IBooking>(
       type: Date,
       required: [true, 'Scheduled date is required'],
       validate: {
-        validator: function (date: Date) {
-          return date > new Date();
+        validator: function (date) {
+          // Only enforce "future date" when creating
+          if (this.isNew) {
+            return date > new Date();
+          }
+          return true; // Always valid when updating
         },
         message: 'Scheduled date must be in the future',
       },
