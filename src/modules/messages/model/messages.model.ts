@@ -58,14 +58,14 @@ const MessageSchema = new Schema<IMessageDocument>(
 // MessageSchema.index({ booking: 1 }); // Messages related to a booking
 
 // Define virtual for conversation
-MessageSchema.virtual('conversation').get(function () {
-  return Message.find({
-    $or: [
-      { sender: this.sender, receiver: this.receiver },
-      { sender: this.receiver, receiver: this.sender },
-    ],
-  }).sort({ createdAt: -1 });
-});
+// MessageSchema.virtual('conversation').get(function () {
+//   return Message.find({
+//     $or: [
+//       { sender: this.sender, receiver: this.receiver },
+//       { sender: this.receiver, receiver: this.sender },
+//     ],
+//   }).sort({ createdAt: -1 });
+// });
 
 MessageSchema.set('toJSON', {
   virtuals: true,
