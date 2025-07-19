@@ -14,7 +14,7 @@ const generateJwtToken = async (user: IUser, device: string, ip: string) => {
       },
     },
     config.ACCESS_TOKEN,
-    { expiresIn: '5m' }
+    { expiresIn: '1h' }
   );
 
   const refreshToken = crypto.randomBytes(40).toString('hex');

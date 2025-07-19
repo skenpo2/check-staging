@@ -11,6 +11,8 @@ import dashboardAnalytics from '../modules/user/user.dashboard-analytics.routes'
 import kycRoutes from '../modules/user/user.kyc.routes';
 import { sensitiveEndpointsLimiter } from '../middlewares/rate-limiter.middleware';
 
+import messageRoutes from '../modules/messages/messages.routes';
+
 const router = Router();
 
 router.use('/auth', sensitiveEndpointsLimiter, authRoutes);
@@ -21,5 +23,7 @@ router.use('/payments', paymentRoutes);
 router.use('/user/kyc', kycRoutes);
 router.use('/user/analytics', dashboardAnalytics);
 router.use('/upload', uploadRoutes);
+
+router.use('/messages', messageRoutes);
 
 export default router;

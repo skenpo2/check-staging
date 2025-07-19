@@ -79,5 +79,5 @@ MessageSchema.set('toJSON', {
   },
 });
 
-const Message = mongoose.model<IMessageDocument>('Message', MessageSchema);
-export default Message;
+const Messaging = mongoose.model<IMessageDocument>('Messaging', MessageSchema);
+export default Messaging;
