@@ -1,5 +1,12 @@
-import Payment, { IPayment, IPaymentDocument, PaymentStatus } from './model/payment.model';
-import { BadRequestException, InternalServerException } from '../../utils/appError';
+import Payment, {
+  IPayment,
+  IPaymentDocument,
+  PaymentStatus,
+} from './model/payment.model';
+import {
+  BadRequestException,
+  InternalServerException,
+} from '../../utils/appError';
 import mongoose from 'mongoose';
 import logger from '../../utils/logger';
 import dotenv from 'dotenv';
@@ -31,13 +38,15 @@ export const initializePaystackPayment = async (
       amount: amount * 100,
       email: email,
       reference: reference || generateTransactionReference(),
-      metadata: metadata || {}
+      metadata: metadata || {},
     };
 
     const response = await paystack.transaction.initialize(paymentData);
-    
+
     if (!response.status) {
-      logger.error(`Failed to initialize Paystack payment: ${JSON.stringify(response)}`);
+      logger.error(
+        `Failed to initialize Paystack payment: ${JSON.stringify(response)}`
+      );
       throw new InternalServerException('Failed to initialize payment');
     }
 
@@ -58,14 +67,18 @@ export const verifyPaystackPayment = async (reference: string) => {
     const response = await paystack.transaction.verify(reference);
 
     if (!response.status) {
-      logger.error(`Failed to verify Paystack payment: ${JSON.stringify(response)}`);
+      logger.error(
+        `Failed to verify Paystack payment: ${JSON.stringify(response)}`
+      );
       throw new BadRequestException('Failed to verify payment');
     }
 
     return response.data;
   } catch (error) {
     logger.error(`Error verifying Paystack payment: ${error}`);
-    throw new InternalServerException('Payment verification service unavailable');
+    throw new InternalServerException(
+      'Payment verification service unavailable'
+    );
   }
 };
 
@@ -75,10 +88,10 @@ export const verifyPaystackPayment = async (reference: string) => {
  * @returns Created payment document
  */
 export const createPaymentRecord = async (paymentData: {
-  booking: mongoose.Types.ObjectId;
-  customer: mongoose.Types.ObjectId;
-  service: mongoose.Types.ObjectId;
-  expert: mongoose.Types.ObjectId;
+  booking: string;
+  customer: string;
+  service: string;
+  expert: string;
   amount: number;
   platformFee?: number;
   transactionId?: string;
@@ -94,7 +107,7 @@ export const createPaymentRecord = async (paymentData: {
 
     const payment = new Payment({
       ...paymentData,
-      platform: paymentData.platform || 'Paystack' // Default to Paystack if not specified
+      platform: paymentData.platform || 'Paystack', // Default to Paystack if not specified
     });
 
     await payment.save();
@@ -115,13 +128,15 @@ export const createPaymentRecord = async (paymentData: {
  * @returns Updated payment document
  */
 export const updatePaymentStatus = async (
-  reference: string, 
+  reference: string,
   status: PaymentStatus,
   transactionId?: string
 ) => {
   try {
-    const payment = await Payment.findOne({ transactionReference: reference }) as IPaymentDocument;
-    
+    const payment = (await Payment.findOne({
+      transactionReference: reference,
+    })) as IPaymentDocument;
+
     if (!payment) {
       throw new BadRequestException('Payment record not found');
     }
@@ -129,7 +144,7 @@ export const updatePaymentStatus = async (
     if (transactionId) {
       payment.transactionId = transactionId;
     }
-    
+
     await payment.updateStatus(status);
     return payment;
   } catch (error) {
@@ -153,11 +168,11 @@ export const getPaymentByReference = async (reference: string) => {
       .populate('expert', 'name email')
       .populate('service', 'title description')
       .populate('booking', 'date');
-    
+
     if (!payment) {
       throw new BadRequestException('Payment record not found');
     }
-    
+
     return payment;
   } catch (error) {
     logger.error(`Error fetching payment by reference: ${error}`);
@@ -174,7 +189,9 @@ export const getPaymentByReference = async (reference: string) => {
  */
 export const generateTransactionReference = () => {
   const timestamp = Date.now().toString();
-  const random = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+  const random = Math.floor(Math.random() * 1000000)
+    .toString()
+    .padStart(6, '0');
   return `CHS-${timestamp}-${random}`;
 };
 
@@ -189,17 +206,16 @@ export const getUserPayments = async (
   role: 'customer' | 'expert'
 ) => {
   try {
-    const query = role === 'customer' 
-      ? { customer: userId } 
-      : { expert: userId };
-    
+    const query =
+      role === 'customer' ? { customer: userId } : { expert: userId };
+
     const payments = await Payment.find(query)
       .populate('customer', 'name email')
       .populate('expert', 'name email')
       .populate('service', 'title description')
       .populate('booking', 'date')
       .sort({ createdAt: -1 });
-    
+
     return payments;
   } catch (error) {
     logger.error(`Error fetching user payments: ${error}`);
@@ -213,19 +229,22 @@ export const getUserPayments = async (
  * @param payload - The request body as a string
  * @returns Whether the signature is valid
  */
-export const verifyPaystackWebhookSignature = (signature: string, payload: string): boolean => {
+export const verifyPaystackWebhookSignature = (
+  signature: string,
+  payload: string
+): boolean => {
   try {
     const secretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!secretKey) {
       logger.error('Paystack secret key not configured');
       return false;
     }
-    
+
     const computedHash = crypto
       .createHmac('sha512', secretKey)
       .update(payload)
       .digest('hex');
-    
+
     return signature === computedHash;
   } catch (error) {
     logger.error(`Error verifying webhook signature: ${error}`);
@@ -238,35 +257,32 @@ export const verifyPaystackWebhookSignature = (signature: string, payload: strin
  * @param event - The webhook event payload
  * @returns Status of the operation
  */
-export const handlePaystackWebhookEvent = async (event: any): Promise<{ success: boolean; message: string }> => {
+export const handlePaystackWebhookEvent = async (
+  event: any
+): Promise<{ success: boolean; message: string }> => {
   try {
     const eventType = event.event;
-    
+
     if (eventType === 'charge.success') {
       const data = event.data;
       const reference = data.reference;
-      
+
       // Update payment status to success
-      await updatePaymentStatus(
-        reference, 
-        'success',
-        data.id.toString()
-      );
-      
+      await updatePaymentStatus(reference, 'success', data.id.toString());
+
       logger.info(`Payment successful for reference: ${reference}`);
       return { success: true, message: 'Payment successful' };
-    } 
-    else if (eventType === 'charge.failed') {
+    } else if (eventType === 'charge.failed') {
       const data = event.data;
       const reference = data.reference;
-      
+
       // Update payment status to failed
       await updatePaymentStatus(reference, 'failed');
-      
+
       logger.info(`Payment failed for reference: ${reference}`);
       return { success: true, message: 'Payment failed status updated' };
     }
-    
+
     return { success: true, message: 'Event processed' };
   } catch (error) {
     logger.error(`Error handling webhook event: ${error}`);
