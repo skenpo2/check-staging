@@ -19,8 +19,8 @@ router.post(
   initializePaymentController
 );
 
-router.get(
-  '/verify/:reference',
+router.post(
+  '/verify/:reference/status',
   passport.authenticate('jwt', { session: false }),
   roleGuard(Permissions.MAKE_PAYMENT),
   verifyPaymentController
