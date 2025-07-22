@@ -87,6 +87,14 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // API ROUTES
 app.use('/api', routes);
 
+// CATCH-ALL ROUTE FOR UNHANDLED ENDPOINTS
+app.all('*', (req: Request, res: Response) => {
+  res.status(HTTPSTATUS.NOT_FOUND).json({
+    success: false,
+    message: `Route ${req.method} ${req.originalUrl} not found`,
+  });
+});
+
 // GLOBAL ERROR HANDLER
 app.use(errorHandler);
 

@@ -89,7 +89,7 @@ export const initializePaymentController = asyncHandler(
 
 export const verifyPaymentController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { reference } = VerifyPaymentSchema.parse({ ...req.body });
+    const reference = req.params.reference;
 
     // Verify payment with Paystack
     const verificationResult = await verifyPaystackPayment(reference);
