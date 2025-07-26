@@ -1,5 +1,9 @@
-import { ReviewSchema } from '../modules/user/schemas/review.schemas';
-import { IReview as IReviewSchema } from '../modules/user/schemas/review.schemas';
+import z from 'zod';
 
+export const createReviewSchema = z.object({
+  bookingId: z.string(),
+  rating: z.number().min(1).max(5),
+  review: z.string().min(2).max(1000),
+});
 
-export const createReviewSchema = ReviewSchema
+export type ICreateReviewSchema = z.infer<typeof createReviewSchema>;

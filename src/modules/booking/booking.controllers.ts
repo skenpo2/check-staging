@@ -90,12 +90,25 @@ export const getAllBookingController = AsyncHandler(
     }
 
     // Optional status filter
-    if (status && typeof status === 'string') {
+    if (status) {
       const allowedStatuses = Object.values(BookingStatusEnum);
-      if (!allowedStatuses.includes(status as BookingStatusEnumType)) {
+      let statusList: string[] = [];
+
+      if (Array.isArray(status)) {
+        statusList = status.map(String);
+      } else if (typeof status === 'string') {
+        statusList = status.split(',').map((s) => s.trim());
+      }
+
+      const isValid = statusList.every((s) =>
+        allowedStatuses.includes(s as BookingStatusEnumType)
+      );
+
+      if (!isValid) {
         throw new BadRequestException('Invalid status');
       }
-      query.status = status;
+
+      query.status = { $in: statusList };
     }
 
     // Sorting

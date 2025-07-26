@@ -4,13 +4,14 @@ import {
   NotFoundException,
   BadRequestException,
 } from '../../../utils/appError';
-import {
-  IReview,
-  IReview as IReviewSchema,
-} from '../../user/schemas/review.schemas';
+import { ICreateReviewSchema } from '../../../validations/review.validations';
+import { Request } from 'express';
 
-const createReview = async (data: IReview) => {
-  const booking = await Booking.findById(data.bookingId);
+const createReview = async (data: ICreateReviewSchema, req: Request) => {
+  const booking = await Booking.findOne({
+    _id: data.bookingId,
+    customer: req.user?._id,
+  });
   if (!booking) throw new NotFoundException('Booking not found');
   if (booking.status !== 'COMPLETED') {
     throw new BadRequestException('Cannot review an incomplete booking');
@@ -22,10 +23,10 @@ const createReview = async (data: IReview) => {
   }
 
   const review = new Review({
-    customer: data.customerId,
-    expert: data.expertId,
-    service: data.listingId,
-    booking: data.bookingId,
+    customer: booking.customer,
+    expert: booking.expert,
+    listing: booking.listing,
+    booking: booking._id,
     rating: data.rating,
     review: data.review,
   });

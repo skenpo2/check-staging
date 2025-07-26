@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import asyncHandler from '../../../middlewares/asyncHandler';
 import reviewService from '../service/review.service';
 import { GetAllExpertReviewsQuerySchema } from '../../user/schemas/review.schemas';
-import { createReviewSchema } from '../../../validations/review.validations';
 
 import { HTTPSTATUS } from '../../../configs/http.config';
 import {
@@ -11,15 +10,15 @@ import {
 } from '../../../utils/appError';
 import Review from '../model/review.model';
 import mongoose from 'mongoose';
+import { createReviewSchema } from '../../../validations/review.validations';
 
 export const createReview = asyncHandler(
   async (req: Request, res: Response) => {
     const data = createReviewSchema.parse({ ...req.body });
-    const review = await reviewService.createReview(data);
+    const review = await reviewService.createReview(data, req);
     res.status(HTTPSTATUS.CREATED).json({
       success: true,
       message: 'Review submitted successfully',
-      data: review,
     });
   }
 );
@@ -67,7 +66,7 @@ export const getAllReviews = asyncHandler(
         })
         .skip(skip)
         .limit(pageSize)
-        .select('rating review _id')
+        .select('rating review _id createdAt')
         .populate({
           path: 'customer',
           select: 'name email _id',

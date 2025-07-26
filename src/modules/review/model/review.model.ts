@@ -78,21 +78,21 @@ ReviewSchema.pre('find', function () {
 });
 
 // Static method to get average rating for an expert
-ReviewSchema.statics.getAverageRating = async function (
-  expertId: mongoose.Types.ObjectId
-): Promise<number> {
-  const result = await this.aggregate([
-    { $match: { expert: expertId } },
-    {
-      $group: {
-        _id: null,
-        averageRating: { $avg: '$rating' },
-        totalReviews: { $sum: 1 },
-      },
-    },
-  ]);
-  return result.length > 0 ? Number(result[0].averageRating.toFixed(1)) : 0;
-};
+// ReviewSchema.statics.getAverageRating = async function (
+//   expertId: mongoose.Types.ObjectId
+// ): Promise<number> {
+//   const result = await this.aggregate([
+//     { $match: { expert: expertId } },
+//     {
+//       $group: {
+//         _id: null,
+//         averageRating: { $avg: '$rating' },
+//         totalReviews: { $sum: 1 },
+//       },
+//     },
+//   ]);
+//   return result.length > 0 ? Number(result[0].averageRating.toFixed(1)) : 0;
+// };
 
 // Ensure virtuals are included when converting to JSON
 ReviewSchema.set('toJSON', {
@@ -103,9 +103,9 @@ ReviewSchema.set('toJSON', {
   },
 });
 
-ReviewSchema.virtual('formattedRating').get(function () {
-  return `${this.rating.toFixed(1)} ⭐`;
-});
+// ReviewSchema.virtual('formattedRating').get(function () {
+//   return `${this.rating.toFixed(1)} ⭐`;
+// });
 
 // Create and export the Review model
 const Review = mongoose.model<IReviewDocument, IReviewModel>(
