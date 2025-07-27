@@ -177,7 +177,7 @@ export const paystackWebhookController = asyncHandler(
     }
 
     // Verify the signature using the service method
-    const payload = JSON.stringify(req.body);
+    const payload = req.body;
     const isValidSignature = verifyPaystackWebhookSignature(signature, payload);
 
     if (!isValidSignature) {
