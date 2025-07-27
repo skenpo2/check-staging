@@ -13,6 +13,8 @@ import routes from './routes';
 import errorHandler from './middlewares/errorHandler.middleware';
 import logger from './utils/logger';
 import { publishEvent } from './configs/rabbitmqPublisher';
+import { initializeMessageService } from './modules/messages/messages.service';
+import { paystackWebhookController } from './modules/payment/payment.controller';
 
 // Create Express app
 const app = express();
@@ -108,8 +110,6 @@ const io = new Server(server, {
 });
 
 // Initialize your real-time messaging
-import { initializeMessageService } from './modules/messages/messages.service';
-import { paystackWebhookController } from './modules/payment/payment.controller';
 initializeMessageService(io);
 
 export { app, server, io };
