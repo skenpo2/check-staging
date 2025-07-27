@@ -11,6 +11,8 @@ import mongoose from 'mongoose';
 import logger from '../../utils/logger';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import Booking from '../booking/model/booking.model';
+import { BookingStatusEnum } from '../../enums/booking-status.enum';
 const Paystack = require('paystack');
 
 dotenv.config();
@@ -268,7 +270,23 @@ export const handlePaystackWebhookEvent = async (
       const reference = data.reference;
 
       // Update payment status to success
-      await updatePaymentStatus(reference, 'success', data.id.toString());
+      const payment = await updatePaymentStatus(
+        reference,
+        'success',
+        data.id.toString()
+      );
+
+      const booking = await Booking.findOne({
+        id: payment.booking,
+        status: BookingStatusEnum.CONFIRMED,
+      });
+
+      if (booking) {
+        booking.status = BookingStatusEnum.PAID;
+        booking.payment = payment._id as mongoose.Types.ObjectId;
+
+        await booking.save();
+      }
 
       logger.info(`Payment successful for reference: ${reference}`);
       return { success: true, message: 'Payment successful' };

@@ -102,6 +102,21 @@ export const verifyPaymentController = asyncHandler(
         'success',
         verificationResult.id.toString()
       );
+
+      // we went to update the booking status to "PAID" in case the webhook failed to do its job
+
+      //  const booking = await Booking.findOne({
+      //         id: payment.booking,
+      //         status: BookingStatusEnum.CONFIRMED,
+      //       });
+
+      //       if (booking) {
+      //         booking.status = BookingStatusEnum.PAID;
+      //         booking.payment = payment._id as mongoose.Types.ObjectId;
+
+      //         await booking.save();
+      //       }
+
       const { id, status, paid_at, amount } = verificationResult;
 
       return res.status(HTTPSTATUS.OK).json({
