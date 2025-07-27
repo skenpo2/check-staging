@@ -40,7 +40,4 @@ router.get(
   getPaymentController
 );
 
-// Public webhook route for Paystack
-router.post('/webhook', paystackWebhookController);
-
 export default router;

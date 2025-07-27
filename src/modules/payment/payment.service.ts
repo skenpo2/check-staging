@@ -7,7 +7,7 @@ import {
   BadRequestException,
   InternalServerException,
 } from '../../utils/appError';
-import mongoose from 'mongoose';
+import mongoose, { ClientSession } from 'mongoose';
 import logger from '../../utils/logger';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
@@ -89,30 +89,35 @@ export const verifyPaystackPayment = async (reference: string) => {
  * @param paymentData - Payment data to store
  * @returns Created payment document
  */
-export const createPaymentRecord = async (paymentData: {
-  booking: string;
-  customer: string;
-  service: string;
-  expert: string;
-  amount: number;
-  platformFee?: number;
-  transactionId?: string;
-  transactionReference: string;
-  platform?: string;
-  status: PaymentStatus;
-}) => {
+
+export const createPaymentRecord = async (
+  paymentData: {
+    booking: string;
+    customer: string;
+    service: string;
+    expert: string;
+    amount: number;
+    platformFee?: number;
+    transactionId?: string;
+    transactionReference: string;
+    platform?: string;
+    status: PaymentStatus;
+  },
+  session?: ClientSession // optional session parameter
+) => {
   try {
-    // Calculate platform fee if not provided (e.g., 5% of amount)
+    // Calculate platform fee if not provided
     if (!paymentData.platformFee) {
       paymentData.platformFee = Math.round(paymentData.amount * 0.05);
     }
 
     const payment = new Payment({
       ...paymentData,
-      platform: paymentData.platform || 'Paystack', // Default to Paystack if not specified
+      platform: paymentData.platform || 'Paystack',
     });
 
-    await payment.save();
+    await payment.save({ session }); //Pass session here
+
     return payment;
   } catch (error) {
     logger.error(`Error creating payment record: ${error}`);
@@ -132,12 +137,13 @@ export const createPaymentRecord = async (paymentData: {
 export const updatePaymentStatus = async (
   reference: string,
   status: PaymentStatus,
-  transactionId?: string
-) => {
+  transactionId?: string,
+  session?: ClientSession
+): Promise<IPaymentDocument> => {
   try {
-    const payment = (await Payment.findOne({
+    const payment = await Payment.findOne({
       transactionReference: reference,
-    })) as IPaymentDocument;
+    }).session(session ?? null);
 
     if (!payment) {
       throw new BadRequestException('Payment record not found');
@@ -147,13 +153,12 @@ export const updatePaymentStatus = async (
       payment.transactionId = transactionId;
     }
 
-    await payment.updateStatus(status);
+    await payment.updateStatus(status, session);
+
     return payment;
   } catch (error) {
     logger.error(`Error updating payment status: ${error}`);
-    if (error instanceof BadRequestException) {
-      throw error;
-    }
+    if (error instanceof BadRequestException) throw error;
     throw new InternalServerException('Failed to update payment status');
   }
 };
@@ -281,10 +286,10 @@ export const handlePaystackWebhookEvent = async (
         status: BookingStatusEnum.CONFIRMED,
       });
 
-      if (booking) {
+      // Update booking status only if it's not already PAID
+      if (booking && booking.status !== BookingStatusEnum.PAID) {
         booking.status = BookingStatusEnum.PAID;
         booking.payment = payment._id as mongoose.Types.ObjectId;
-
         await booking.save();
       }
 

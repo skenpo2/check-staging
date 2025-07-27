@@ -21,122 +21,145 @@ import {
 } from '../../validations/payment.validations';
 import Booking from '../booking/model/booking.model';
 import { BookingStatusEnum } from '../../enums/booking-status.enum';
+import { IPaymentDocument } from './model/payment.model';
 
 /**
  * Initialize a payment transaction with Paystack
  */
+
 export const initializePaymentController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    // Parse and validate request body with Zod schema
-    const { bookingId } = InitializePaymentSchema.parse({ ...req.body });
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    console.log(bookingId);
+    try {
+      const { bookingId } = InitializePaymentSchema.parse({ ...req.body });
 
-    const isBooking = await Booking.findOne({
-      _id: bookingId,
-      status: BookingStatusEnum.CONFIRMED,
-      customer: req.user?._id,
-    });
+      const isBooking = await Booking.findOne({
+        _id: bookingId,
+        status: BookingStatusEnum.CONFIRMED,
+        customer: req.user?._id,
+      }).session(session);
 
-    console.log(isBooking);
+      if (!isBooking) {
+        throw new NotFoundException(
+          'Booking Not found or Booking has been settled'
+        );
+      }
 
-    if (!isBooking) {
-      throw new NotFoundException(
-        'Booking Not found or Booking has been settled'
+      const reference = generateTransactionReference();
+      isBooking.payRef = reference;
+
+      const metadata = {
+        bookingId,
+        serviceId: isBooking.listing,
+        expertId: isBooking.expert,
+        customerId: isBooking.customer,
+      };
+
+      const paymentInitResult = await initializePaystackPayment(
+        isBooking.price,
+        req.user?.email,
+        reference,
+        metadata
       );
+
+      await isBooking.save({ session });
+
+      await createPaymentRecord(
+        {
+          booking: bookingId,
+          customer: req.user?._id.toString(),
+          service: isBooking.listing.toString(),
+          expert: isBooking.expert.toString(),
+          amount: isBooking.price,
+          transactionReference: reference,
+          status: 'pending',
+        },
+        session
+      );
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(HTTPSTATUS.OK).json({
+        success: true,
+        data: {
+          authorizationUrl: paymentInitResult.authorization_url,
+          accessCode: paymentInitResult.access_code,
+          reference: paymentInitResult.reference,
+        },
+      });
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      return next(error);
     }
-
-    // Generate a unique transaction reference
-    const reference = generateTransactionReference();
-
-    // Store metadata for use in webhook/callback
-    const metadata = {
-      bookingId,
-      serviceId: isBooking.listing,
-      expertId: isBooking.expert,
-      customerId: isBooking.customer,
-    };
-
-    // Initialize payment with Paystack
-    const paymentInitResult = await initializePaystackPayment(
-      isBooking.price,
-      req.user?.email,
-      reference,
-      metadata
-    );
-
-    // Create a pending payment record in our database
-    await createPaymentRecord({
-      booking: bookingId,
-      customer: req.user?._id.toString(),
-      service: isBooking?.listing.toString(),
-      expert: isBooking?.expert.toString(),
-      amount: isBooking.price,
-      transactionReference: reference,
-      status: 'pending',
-    });
-
-    return res.status(HTTPSTATUS.OK).json({
-      success: true,
-      data: {
-        authorizationUrl: paymentInitResult.authorization_url,
-        accessCode: paymentInitResult.access_code,
-        reference: paymentInitResult.reference,
-      },
-    });
   }
 );
 
 export const verifyPaymentController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    const reference = req.params.reference;
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    // Verify payment with Paystack
-    const verificationResult = await verifyPaystackPayment(reference);
+    try {
+      const reference = req.params.reference;
 
-    // Check if payment was successful
-    if (verificationResult.status === 'success') {
-      // Update our payment record
-      await updatePaymentStatus(
-        reference,
-        'success',
-        verificationResult.id.toString()
-      );
+      // Verify payment with Paystack
+      const verificationResult = await verifyPaystackPayment(reference);
 
-      // we went to update the booking status to "PAID" in case the webhook failed to do its job
+      if (verificationResult.status === 'success') {
+        // Update payment status to success
+        const payment = (await updatePaymentStatus(
+          reference,
+          'success',
+          verificationResult.id.toString(),
+          session
+        )) as IPaymentDocument;
 
-      //  const booking = await Booking.findOne({
-      //         id: payment.booking,
-      //         status: BookingStatusEnum.CONFIRMED,
-      //       });
+        // Update booking status to PAID if not already updated
+        const booking = await Booking.findOne({
+          payRef: reference,
+          status: BookingStatusEnum.CONFIRMED, // only if not already marked PAID
+          customer: req.user?._id,
+        }).session(session);
 
-      //       if (booking) {
-      //         booking.status = BookingStatusEnum.PAID;
-      //         booking.payment = payment._id as mongoose.Types.ObjectId;
+        if (booking) {
+          booking.status = BookingStatusEnum.PAID;
+          booking.payment = payment._id as mongoose.Types.ObjectId;
+          await booking.save({ session });
+        }
 
-      //         await booking.save();
-      //       }
+        await session.commitTransaction();
+        session.endSession();
 
-      const { id, status, paid_at, amount } = verificationResult;
+        const { id, status, paid_at, amount } = verificationResult;
 
-      return res.status(HTTPSTATUS.OK).json({
-        success: true,
-        data: {
-          transactionId: id,
-          amount,
-          status,
-          date: paid_at,
-        },
-      });
-    } else {
-      // Update our payment record to failed
-      await updatePaymentStatus(reference, 'failed');
+        return res.status(HTTPSTATUS.OK).json({
+          success: true,
+          data: {
+            transactionId: id,
+            amount,
+            status,
+            date: paid_at,
+          },
+        });
+      } else {
+        await updatePaymentStatus(reference, 'failed'); // Not in transaction
+        await session.abortTransaction();
+        session.endSession();
 
-      return res.status(HTTPSTATUS.BAD_REQUEST).json({
-        success: false,
-        message: 'Payment verification failed',
-        data: verificationResult,
-      });
+        return res.status(HTTPSTATUS.BAD_REQUEST).json({
+          success: false,
+          message: 'Payment verification failed',
+          data: verificationResult,
+        });
+      }
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      throw error;
     }
   }
 );

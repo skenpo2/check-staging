@@ -12,6 +12,7 @@ interface IBookingBase {
   status: BookingStatusEnumType;
   location: string;
   note?: string;
+  payRef?: string;
   price: number;
   platformFee: number;
   scheduledAt: Date;
@@ -68,6 +69,10 @@ const BookingSchema = new Schema<IBooking>(
       enum: Object.values(BookingStatusEnum),
       default: BookingStatusEnum.PENDING,
       required: [true, 'Status is required'],
+    },
+
+    payRef: {
+      type: String,
     },
 
     price: {

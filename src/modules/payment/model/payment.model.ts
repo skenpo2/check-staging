@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema, ClientSession } from 'mongoose';
 
 // TODO: If a Zod schema exists for Payment, import it like:
 // import { IPayment as IPaymentSchema } from '../schemas/payment.schema';
@@ -29,12 +29,15 @@ export interface IPayment extends IPaymentBase {
 }
 
 export interface IPaymentDocument extends IPaymentBase, Document {
-  updateStatus(newStatus: PaymentStatus): Promise<void>;
+  updateStatus(
+    newStatus: PaymentStatus,
+    session?: ClientSession
+  ): Promise<void>;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const PaymentSchema = new Schema<IPayment>(
+const PaymentSchema = new Schema<IPaymentDocument>(
   {
     booking: {
       type: Schema.Types.ObjectId,
@@ -134,16 +137,18 @@ const PaymentSchema = new Schema<IPayment>(
 
 // Method to handle payment status change
 PaymentSchema.methods.updateStatus = async function (
-  newStatus: PaymentStatus
+  newStatus: PaymentStatus,
+  session?: mongoose.ClientSession
 ): Promise<void> {
   this.status = newStatus;
+
   if (newStatus === 'success') {
-    // If successful, calculate when to release escrow (e.g., 7 days)
     const releaseDate = new Date();
     releaseDate.setDate(releaseDate.getDate() + 7);
     this.escrowReleaseDate = releaseDate;
   }
-  await this.save();
+
+  await this.save({ session }); //Make save part of the transaction
 };
 
 // Ensure virtuals are included when converting to JSON
@@ -156,5 +161,5 @@ PaymentSchema.set('toJSON', {
 });
 
 // Create and export the Payment model
-const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);
+const Payment = mongoose.model<IPaymentDocument>('Payment', PaymentSchema);
 export default Payment;

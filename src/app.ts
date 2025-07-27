@@ -50,6 +50,12 @@ app.use(
   })
 );
 
+// Public webhook route for Paystack
+app.post(
+  '/api/paystack/webhook',
+  express.raw({ type: '*/*' }),
+  paystackWebhookController
+);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -87,14 +93,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // API ROUTES
 app.use('/api', routes);
 
-// CATCH-ALL ROUTE FOR UNHANDLED ENDPOINTS
-// app.all('*', (req: Request, res: Response) => {
-//   res.status(HTTPSTATUS.NOT_FOUND).json({
-//     success: false,
-//     message: `Route ${req.method} ${req.originalUrl} not found`,
-//   });
-// });
-
 // GLOBAL ERROR HANDLER
 app.use(errorHandler);
 
@@ -111,6 +109,7 @@ const io = new Server(server, {
 
 // Initialize your real-time messaging
 import { initializeMessageService } from './modules/messages/messages.service';
+import { paystackWebhookController } from './modules/payment/payment.controller';
 initializeMessageService(io);
 
 export { app, server, io };

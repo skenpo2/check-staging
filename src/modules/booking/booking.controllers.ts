@@ -161,8 +161,6 @@ export const getBookingByIDController = AsyncHandler(
       throw new BadRequestException('Invalid booking ID');
     }
 
-    console.log(bookingId);
-
     if (!userRole || !userId) {
       throw new UnauthorizedException('Unauthorized');
     }
