@@ -176,7 +176,7 @@ export const paystackWebhookController = asyncHandler(
         message: 'Invalid webhook signature',
       });
     }
-
+    console.log('before sign', req.body);
     // Verify the signature using the service method
     const payload = req.body;
     const isValidSignature = verifyPaystackWebhookSignature(signature, payload);
@@ -188,9 +188,12 @@ export const paystackWebhookController = asyncHandler(
         message: 'Invalid webhook signature',
       });
     }
+    console.log('before', req.body);
+    const rawBody = req.body.toString();
+    const event = JSON.parse(rawBody);
 
     // Process the event using the service method
-    await handlePaystackWebhookEvent(req.body);
+    await handlePaystackWebhookEvent(event);
 
     // Always respond with 200 to acknowledge receipt, even if there was an issue processing
     return res.status(HTTPSTATUS.OK).json({
