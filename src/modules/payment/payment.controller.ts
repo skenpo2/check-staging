@@ -166,6 +166,7 @@ export const verifyPaymentController = asyncHandler(
 
 export const paystackWebhookController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
+    console.log(req.body);
     // Verify webhook signature from Paystack
     const signature = req.headers['x-paystack-signature'] as string;
     if (!signature) {
