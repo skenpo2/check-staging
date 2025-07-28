@@ -268,6 +268,7 @@ export const handlePaystackWebhookEvent = async (
   event: any
 ): Promise<{ success: boolean; message: string }> => {
   try {
+    console.log(event);
     const eventType = event.event;
 
     if (eventType === 'charge.success') {
