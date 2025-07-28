@@ -8,7 +8,7 @@ import {
   getLastFourBookingByExpertId,
   getLastFourReviewsByExpertId,
 } from './user.dashboard.controller';
-import { getMonthlyPaymentSummary } from './user.payment-graph.controllers';
+import { getExpertYearlyEarnings } from './user.payment-graph.controllers';
 
 const router = express.Router();
 
@@ -37,7 +37,7 @@ router.get(
   '/payment',
   passport.authenticate('jwt', { session: false }),
   roleGuard(Permissions.CREATE_LISTING),
-  getMonthlyPaymentSummary
+  getExpertYearlyEarnings
 );
 
 router.get(

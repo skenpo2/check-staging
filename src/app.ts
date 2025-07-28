@@ -56,6 +56,10 @@ app.use(
 app.post(
   '/api/paystack/webhook',
   express.raw({ type: '*/*' }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    logger.info(`Received ${req.method} request to ${req.url}`);
+    next();
+  },
   paystackWebhookController
 );
 app.use(express.json());

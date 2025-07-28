@@ -1,118 +1,93 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Booking from '../booking/model/booking.model';
+import AsyncHandler from '../../middlewares/asyncHandler';
 
-export const getMonthlyPaymentSummary = async (req: Request, res: Response) => {
-  try {
-    const userId = new mongoose.Types.ObjectId((req as any).user._id);
-    const year = parseInt(req.query.year as string) || new Date().getFullYear();
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
-    const startOfYear = new Date(year, 0, 1);
-    const endOfYear = new Date(year + 1, 0, 1);
+export const getExpertYearlyEarnings = AsyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const expertId = new mongoose.Types.ObjectId(req.user?._id);
+    const year = parseInt(req.query.year as string);
 
-    const summary = await Booking.aggregate([
+    if (isNaN(year)) {
+      return res.status(400).json({ error: 'Invalid year parameter' });
+    }
+
+    const startOfYear = new Date(`${year}-01-01T00:00:00Z`);
+    const endOfYear = new Date(`${year}-12-31T23:59:59Z`);
+
+    const result = await Booking.aggregate([
       {
         $match: {
-          user: userId,
-          createdAt: { $gte: startOfYear, $lt: endOfYear },
-          payment: { $exists: true, $ne: null },
+          expert: expertId,
+          payment: { $ne: null },
+          createdAt: { $gte: startOfYear, $lte: endOfYear },
         },
       },
       {
-        $addFields: {
+        $project: {
           month: { $month: '$createdAt' },
           netPrice: { $subtract: ['$price', '$platformFee'] },
+          status: 1,
         },
       },
       {
-        $project: {
-          month: 1,
-          price: 1,
-          netPrice: 1,
-          isCompleted: { $eq: ['$status', 'COMPLETED'] },
-          // Any booking with payment AND not completed is pending
-          isPending: { $ne: ['$status', 'COMPLETED'] },
-        },
-      },
-      {
-        $facet: {
-          completed: [
-            { $match: { isCompleted: true } },
-            {
-              $group: {
-                _id: '$month',
-                total: { $sum: '$netPrice' },
-              },
-            },
-          ],
-          pending: [
-            { $match: { isPending: true } },
-            {
-              $group: {
-                _id: '$month',
-                total: { $sum: '$price' }, // or netPrice if you prefer
-              },
-            },
-          ],
-        },
-      },
-      {
-        $project: {
-          merged: {
-            $setUnion: ['$completed', '$pending'],
-          },
-          completed: 1,
-          pending: 1,
-        },
-      },
-      { $unwind: '$merged' },
-      {
-        $project: {
-          month: '$merged._id',
-          complete: {
-            $reduce: {
-              input: '$completed',
-              initialValue: 0,
-              in: {
-                $cond: [
-                  { $eq: ['$$this._id', '$merged._id'] },
-                  '$$this.total',
-                  '$$value',
-                ],
-              },
+        $group: {
+          _id: '$month',
+          Pending: {
+            $sum: {
+              $cond: [{ $in: ['$status', ['PAID', 'DONE']] }, '$netPrice', 0],
             },
           },
-          pending: {
-            $reduce: {
-              input: '$pending',
-              initialValue: 0,
-              in: {
-                $cond: [
-                  { $eq: ['$$this._id', '$merged._id'] },
-                  '$$this.total',
-                  '$$value',
-                ],
-              },
+          Completed: {
+            $sum: {
+              $cond: [{ $eq: ['$status', 'COMPLETED'] }, '$netPrice', 0],
             },
           },
         },
       },
-      { $sort: { month: 1 } },
     ]);
 
-    // Fill in months 1–12
-    const final = Array.from({ length: 12 }, (_, i) => {
-      const monthData = summary.find((s) => s.month === i + 1);
+    // Create a map with default 0 values
+    const earningsMap: Record<number, { Completed: number; Pending: number }> =
+      {};
+    for (let i = 1; i <= 12; i++) {
+      earningsMap[i] = { Completed: 0, Pending: 0 };
+    }
+
+    // Merge aggregation result into the map
+    for (const entry of result) {
+      const monthNum = entry._id;
+      earningsMap[monthNum] = {
+        Completed: entry.Completed || 0,
+        Pending: entry.Pending || 0,
+      };
+    }
+
+    // Convert to final format
+    const earningsArray = Object.keys(earningsMap).map((monthStr) => {
+      const monthNum = parseInt(monthStr);
       return {
-        month: new Date(0, i).toLocaleString('default', { month: 'short' }),
-        complete: monthData?.complete || 0,
-        pending: monthData?.pending || 0,
+        month: MONTHS[monthNum - 1],
+        completed: earningsMap[monthNum].Completed,
+        pending: earningsMap[monthNum].Pending,
       };
     });
 
-    res.json({ year, data: final });
-  } catch (err) {
-    console.error('Analytics error:', err);
-    res.status(500).json({ message: 'Failed to get payment summary' });
+    return res.status(200).json(earningsArray);
   }
-};
+);
