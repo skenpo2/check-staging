@@ -1,8 +1,5 @@
 import mongoose, { Document, Schema, ClientSession } from 'mongoose';
 
-// TODO: If a Zod schema exists for Payment, import it like:
-// import { IPayment as IPaymentSchema } from '../schemas/payment.schema';
-
 export type PaymentPlatform = 'Paystack' | 'Flutterwave';
 export type PaymentStatus = 'pending' | 'success' | 'failed' | 'refunded';
 export type ReleaseStatus = 'pending' | 'released' | 'disputed';

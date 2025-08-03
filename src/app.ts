@@ -99,6 +99,14 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // API ROUTES
 app.use('/api', routes);
 
+// 404
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    message: "Lost? 🚀 That page doesn't exist — but welcome to Checkslate",
+  });
+});
+
 // GLOBAL ERROR HANDLER
 app.use(errorHandler);
 

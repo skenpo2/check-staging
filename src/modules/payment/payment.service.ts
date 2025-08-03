@@ -210,20 +210,39 @@ export const generateTransactionReference = () => {
  */
 export const getUserPayments = async (
   userId: mongoose.Types.ObjectId,
-  role: 'customer' | 'expert'
+  role: 'customer' | 'expert',
+  page = 1,
+  limit = 10
 ) => {
   try {
     const query =
       role === 'customer' ? { customer: userId } : { expert: userId };
 
-    const payments = await Payment.find(query)
-      .populate('customer', 'name email')
-      .populate('expert', 'name email')
-      .populate('service', 'title description')
-      .populate('booking', 'date')
-      .sort({ createdAt: -1 });
+    const skip = (page - 1) * limit;
 
-    return payments;
+    const [payments, totalRecords] = await Promise.all([
+      Payment.find(query)
+        .populate('customer', 'name email')
+        .populate('expert', 'name email')
+        .populate('service', 'title description')
+        .populate('booking', 'date')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Payment.countDocuments(query),
+    ]);
+
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    return {
+      payments,
+      meta: {
+        totalRecords,
+        totalPages,
+        currentPage: page,
+        pageSize: limit,
+      },
+    };
   } catch (error) {
     logger.error(`Error fetching user payments: ${error}`);
     throw new InternalServerException('Failed to fetch payment records');

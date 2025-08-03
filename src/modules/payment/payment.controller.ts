@@ -21,11 +21,8 @@ import {
 } from '../../validations/payment.validations';
 import Booking from '../booking/model/booking.model';
 import { BookingStatusEnum } from '../../enums/booking-status.enum';
-import { IPaymentDocument } from './model/payment.model';
-
-/**
- * Initialize a payment transaction with Paystack
- */
+import Payment, { IPaymentDocument } from './model/payment.model';
+import AsyncHandler from '../../middlewares/asyncHandler';
 
 export const initializePaymentController = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -231,11 +228,141 @@ export const getUserPaymentsController = asyncHandler(
     const userId = new mongoose.Types.ObjectId(req.user?._id.toString());
     const role = req.query.role === 'expert' ? 'expert' : 'customer';
 
-    const payments = await getUserPayments(userId, role);
+    // Parse pagination params with defaults
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const payments = await getUserPayments(userId, role, page, limit);
 
     return res.status(HTTPSTATUS.OK).json({
       success: true,
-      data: payments,
+      payments: payments.payments,
+      ...payments.meta,
+    });
+  }
+);
+
+export const getCustomerPaymentAnalytics = AsyncHandler(
+  async (req: Request, res: Response) => {
+    const { year, userId } = req.query;
+
+    // Validate year parameter
+    const selectedYear = parseInt(year as string) || new Date().getFullYear();
+
+    // Build match conditions
+    const matchConditions: any = {
+      status: 'success', // Only count successful payments
+      createdAt: {
+        $gte: new Date(`${selectedYear}-01-01`),
+        $lte: new Date(`${selectedYear}-12-31T23:59:59.999Z`),
+      },
+    };
+
+    // If userId is provided, filter by customer
+    if (req.user?._id) {
+      matchConditions.customer = new mongoose.Types.ObjectId(
+        req.user?._id as string
+      );
+    }
+
+    // Aggregate monthly data
+    const monthlyData = await Payment.aggregate([
+      {
+        $match: matchConditions,
+      },
+      {
+        $group: {
+          _id: { $month: '$createdAt' },
+          amount: { $sum: '$amount' },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    const monthly = monthNames.map((month, index) => {
+      const monthData = monthlyData.find((data) => data._id === index + 1);
+      return {
+        month,
+        amount: monthData ? Math.round(monthData.amount) : 0,
+      };
+    });
+
+    // Calculate summary statistics
+    const totalAmount = monthlyData.reduce(
+      (sum, month) => sum + month.amount,
+      0
+    );
+    const totalTransactions = monthlyData.reduce(
+      (sum, month) => sum + month.count,
+      0
+    );
+    const avgMonthly =
+      monthlyData.length > 0 ? Math.round(totalAmount / 12) : 0;
+
+    const analytics = {
+      monthly,
+      total: Math.round(totalAmount),
+      avg: avgMonthly,
+      transactions: totalTransactions,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: analytics,
+    });
+  }
+);
+
+// Get available years for the dropdown
+export const getAvailableYears = AsyncHandler(
+  async (req: Request, res: Response) => {
+    const { userId } = req.query;
+
+    const matchConditions: any = {
+      status: 'success',
+    };
+
+    if (userId) {
+      matchConditions.customer = new mongoose.Types.ObjectId(userId as string);
+    }
+
+    const years = await Payment.aggregate([
+      {
+        $match: matchConditions,
+      },
+      {
+        $group: {
+          _id: { $year: '$createdAt' },
+        },
+      },
+      {
+        $sort: { _id: -1 },
+      },
+    ]);
+
+    const availableYears = years.map((year) => year._id);
+
+    res.status(200).json({
+      success: true,
+      data: availableYears,
     });
   }
 );
